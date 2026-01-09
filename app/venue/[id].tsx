@@ -51,9 +51,21 @@ export default function VenueScreen() {
     }
   };
 
+  // Filter categories to only show those that have products
+  const categoriesWithItems = categories.filter(category => 
+    products.some(product => product.category_id === category.id)
+  );
+
   const filteredItems = products.filter(
     (product) => product.category_id === selectedCategory
   );
+
+  // Auto-select first category with items if current selection has no items
+  useEffect(() => {
+    if (categoriesWithItems.length > 0 && !categoriesWithItems.find(c => c.id === selectedCategory)) {
+      setSelectedCategory(categoriesWithItems[0].id);
+    }
+  }, [categoriesWithItems, selectedCategory]);
 
   if (loading) {
     return (
@@ -112,14 +124,14 @@ export default function VenueScreen() {
         </View>
 
         {/* Category Tabs */}
-        {categories.length > 0 && (
+        {categoriesWithItems.length > 0 && (
           <View className="bg-white border-b border-sand/50">
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 12 }}
             >
-              {categories.map((category) => (
+              {categoriesWithItems.map((category) => (
                 <TouchableOpacity
                   key={category.id}
                   onPress={() => setSelectedCategory(category.id)}
@@ -144,30 +156,24 @@ export default function VenueScreen() {
         {/* Menu Items */}
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
           <View className="px-6 py-4 pb-24">
-            {filteredItems.length === 0 ? (
-              <Text className="text-charcoal/60 text-center py-12">
-                No items in this category
-              </Text>
-            ) : (
-              filteredItems.map((product) => {
-                const menuItem = {
-                  id: product.id,
-                  name: product.name,
-                  description: product.description || '',
-                  price: product.price,
-                  image: product.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80',
-                  category: product.product_category?.name || '',
-                };
-                return (
-                  <MenuItemCard 
-                    key={product.id} 
-                    item={menuItem} 
-                    venueId={venue.id} 
-                    venueName={venue.name} 
-                  />
-                );
-              })
-            )}
+            {filteredItems.map((product) => {
+              const menuItem = {
+                id: product.id,
+                name: product.name,
+                description: product.description || '',
+                price: product.price,
+                image: product.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&q=80',
+                category: product.product_category?.name || '',
+              };
+              return (
+                <MenuItemCard 
+                  key={product.id} 
+                  item={menuItem} 
+                  venueId={venue.id} 
+                  venueName={venue.name} 
+                />
+              );
+            })}
           </View>
         </ScrollView>
 

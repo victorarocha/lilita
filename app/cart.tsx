@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, Minus, Plus, Trash2 } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
@@ -67,6 +68,9 @@ export default function CartScreen() {
                     <View className="flex-row justify-between items-start mb-2">
                       <View className="flex-1 pr-2">
                         <Text className="text-charcoal font-bold text-base mb-1">{item.name}</Text>
+                        {item.selectedVariation && (
+                          <Text className="text-turquoise/80 text-sm">{item.selectedVariation.name}</Text>
+                        )}
                         {item.customizations && (
                           <Text className="text-charcoal/60 text-sm">{item.customizations}</Text>
                         )}

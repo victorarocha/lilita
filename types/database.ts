@@ -71,3 +71,11 @@ export interface OrderProduct {
   product_variations?: Record<string, any>;
   price: number;
 }
+
+export interface ProductVariation {
+  id: number;
+  created_at?: string;
+  name: string;
+  price: number;
+  product_id: number;
+}

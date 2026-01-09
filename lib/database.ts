@@ -7,7 +7,8 @@ import type {
   OrderingLocation,
   Order,
   OrderProduct,
-  Currency
+  Currency,
+  ProductVariation
 } from '@/types/database';
 
 // Fetch all hospitality centers (locations/resorts)
@@ -100,6 +101,18 @@ export async function getOrderingLocationsByHospitalityCenter(hospitalityCenterI
 
   if (error) throw error;
   return data as OrderingLocation[];
+}
+
+// Fetch product variations for a product
+export async function getProductVariations(productId: number) {
+  const { data, error } = await supabase
+    .from('product_variation')
+    .select('*')
+    .eq('product_id', productId)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  return data as ProductVariation[];
 }
 
 // Create a new order

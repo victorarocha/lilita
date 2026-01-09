@@ -21,11 +21,18 @@ export interface MenuItem {
 
 export type MenuCategory = 'drinks' | 'appetizers' | 'mains' | 'desserts';
 
+export interface SelectedVariation {
+  id: number;
+  name: string;
+  price: number;
+}
+
 export interface CartItem extends MenuItem {
   quantity: number;
   customizations?: string;
   venueId: string;
   venueName: string;
+  selectedVariation?: SelectedVariation;
 }
 
 export interface DeliveryLocation {
