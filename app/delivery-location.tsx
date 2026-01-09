@@ -9,13 +9,13 @@ import { DeliveryLocation } from '@/types';
 
 const getLocationIcon = (type: string) => {
   switch (type) {
-    case 'pool':
+    case 'alberca':
       return Waves;
-    case 'cabana':
+    case 'villa':
       return House;
-    case 'table':
+    case 'mesa':
       return Armchair;
-    case 'beach':
+    case 'playa':
       return Sun
     default:
       return MapPin;
@@ -126,7 +126,7 @@ export default function DeliveryLocationScreen() {
                       </Text>
                       {location.type && (
                         <Text className="text-charcoal/60 text-sm capitalize">
-                          {location.type} Area
+                          Area de {location.type}
                         </Text>
                       )}
                     </View>
