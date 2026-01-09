@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, SafeAreaView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, MapPin, Armchair, Coffee, Waves } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
-import { mockDeliveryLocations } from '@/data/mockData';
+import { getOrderingLocationsByHospitalityCenter } from '@/lib/database';
+import { OrderingLocation } from '@/types/database';
 import { DeliveryLocation } from '@/types';
 
 const getLocationIcon = (type: string) => {
@@ -20,15 +21,44 @@ const getLocationIcon = (type: string) => {
 };
 
 export default function DeliveryLocationScreen() {
-  const { setDeliveryLocation } = useApp();
-  const [selectedLocation, setSelectedLocation] = useState<DeliveryLocation | null>(null);
+  const { setDeliveryLocation, hospitalityCenterId } = useApp();
+  const [selectedLocation, setSelectedLocation] = useState<OrderingLocation | null>(null);
   const [customNote, setCustomNote] = useState('');
+  const [locations, setLocations] = useState<OrderingLocation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchLocations() {
+      if (!hospitalityCenterId) {
+        setError('Please select a hospitality center first');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const data = await getOrderingLocationsByHospitalityCenter(hospitalityCenterId);
+        setLocations(data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching ordering locations:', err);
+        setError('Failed to load delivery locations');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchLocations();
+  }, [hospitalityCenterId]);
 
   const handleContinue = () => {
     if (!selectedLocation) return;
 
-    const locationWithNote = {
-      ...selectedLocation,
+    const locationWithNote: DeliveryLocation = {
+      id: selectedLocation.id.toString(),
+      name: selectedLocation.name,
+      type: (selectedLocation.type as any) || 'custom',
       customNote: customNote || undefined,
     };
 
@@ -52,42 +82,61 @@ export default function DeliveryLocationScreen() {
               Where should we deliver your order?
             </Text>
 
-            {mockDeliveryLocations.map((location) => {
-              const Icon = getLocationIcon(location.type);
-              const isSelected = selectedLocation?.id === location.id;
+            {loading ? (
+              <View className="py-12 items-center">
+                <ActivityIndicator size="large" color="#00A896" />
+                <Text className="text-charcoal/60 mt-4">Loading delivery locations...</Text>
+              </View>
+            ) : error ? (
+              <View className="bg-coral/10 rounded-card p-4 mb-4">
+                <Text className="text-coral text-center">{error}</Text>
+              </View>
+            ) : locations.length === 0 ? (
+              <View className="bg-sand rounded-card p-6 mb-4">
+                <Text className="text-charcoal text-center">
+                  No delivery locations available for this center
+                </Text>
+              </View>
+            ) : (
+              locations.map((location) => {
+                const Icon = getLocationIcon(location.type || 'custom');
+                const isSelected = selectedLocation?.id === location.id;
 
-              return (
-                <TouchableOpacity
-                  key={location.id}
-                  onPress={() => setSelectedLocation(location)}
-                  className={`bg-white rounded-card p-4 mb-3 shadow-soft flex-row items-center ${
-                    isSelected ? 'border-2 border-turquoise' : 'border border-transparent'
-                  }`}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    className={`rounded-full p-3 mr-3 ${
-                      isSelected ? 'bg-turquoise' : 'bg-sand'
+                return (
+                  <TouchableOpacity
+                    key={location.id}
+                    onPress={() => setSelectedLocation(location)}
+                    className={`bg-white rounded-card p-4 mb-3 shadow-soft flex-row items-center ${
+                      isSelected ? 'border-2 border-turquoise' : 'border border-transparent'
                     }`}
+                    activeOpacity={0.8}
                   >
-                    <Icon size={22} color={isSelected ? '#FAF7F2' : '#3E3D38'} />
-                  </View>
-                  <View className="flex-1">
-                    <Text className="text-charcoal font-semibold text-base">
-                      {location.name}
-                    </Text>
-                    <Text className="text-charcoal/60 text-sm capitalize">
-                      {location.type} Area
-                    </Text>
-                  </View>
-                  {isSelected && (
-                    <View className="bg-turquoise rounded-full w-6 h-6 items-center justify-center">
-                      <Text className="text-white font-bold">✓</Text>
+                    <View
+                      className={`rounded-full p-3 mr-3 ${
+                        isSelected ? 'bg-turquoise' : 'bg-sand'
+                      }`}
+                    >
+                      <Icon size={22} color={isSelected ? '#FAF7F2' : '#3E3D38'} />
                     </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+                    <View className="flex-1">
+                      <Text className="text-charcoal font-semibold text-base">
+                        {location.name}
+                      </Text>
+                      {location.type && (
+                        <Text className="text-charcoal/60 text-sm capitalize">
+                          {location.type} Area
+                        </Text>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <View className="bg-turquoise rounded-full w-6 h-6 items-center justify-center">
+                        <Text className="text-white font-bold">✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })
+            )}
 
             {selectedLocation && (
               <View className="mt-4">

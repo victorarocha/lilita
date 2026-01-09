@@ -90,6 +90,18 @@ export async function getOrderingLocationsByMerchant(merchantId: number) {
   return data as OrderingLocation[];
 }
 
+// Fetch ordering locations for a hospitality center
+export async function getOrderingLocationsByHospitalityCenter(hospitalityCenterId: number) {
+  const { data, error } = await supabase
+    .from('ordering_location')
+    .select('*')
+    .eq('hospitality_center_id', hospitalityCenterId)
+    .order('name', { ascending: true });
+
+  if (error) throw error;
+  return data as OrderingLocation[];
+}
+
 // Create a new order
 export async function createOrder(orderData: {
   merchant_id: string;

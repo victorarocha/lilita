@@ -50,6 +50,7 @@ export interface OrderingLocation {
   name: string;
   qr_code: Record<string, any>;
   hospitality_center_id?: number;
+  type?: string;
 }
 
 export interface Order {

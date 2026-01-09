@@ -218,31 +218,34 @@ export type Database = {
       ordering_location: {
         Row: {
           created_at: string
+          hospitality_center_id: number | null
           id: number
-          merchant_id: number | null
           name: string
           qr_code: Json
+          type: string | null
         }
         Insert: {
           created_at?: string
+          hospitality_center_id?: number | null
           id?: number
-          merchant_id?: number | null
           name: string
           qr_code: Json
+          type?: string | null
         }
         Update: {
           created_at?: string
+          hospitality_center_id?: number | null
           id?: number
-          merchant_id?: number | null
           name?: string
           qr_code?: Json
+          type?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "ordering_location_merchant_id_fkey"
-            columns: ["merchant_id"]
+            foreignKeyName: "ordering_location_hospitality_center_id_fkey"
+            columns: ["hospitality_center_id"]
             isOneToOne: false
-            referencedRelation: "merchant"
+            referencedRelation: "hospitality_center"
             referencedColumns: ["id"]
           },
         ]
