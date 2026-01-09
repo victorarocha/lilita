@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, TextInput, SafeAreaView, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
-import { ArrowLeft, MapPin, Armchair, Coffee, Waves } from 'lucide-react-native';
+import { ArrowLeft, MapPin, Armchair, Waves, House, Sun } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
 import { getOrderingLocationsByHospitalityCenter } from '@/lib/database';
 import { OrderingLocation } from '@/types/database';
@@ -12,9 +12,11 @@ const getLocationIcon = (type: string) => {
     case 'pool':
       return Waves;
     case 'cabana':
-      return Armchair;
+      return House;
     case 'table':
-      return Coffee;
+      return Armchair;
+    case 'beach':
+      return Sun
     default:
       return MapPin;
   }
