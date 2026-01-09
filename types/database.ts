@@ -56,9 +56,12 @@ export interface OrderingLocation {
 export interface Order {
   id: number;
   created_at?: string;
+  order_code: string;
   ordering_location_id: number;
   customer_id: number;
-  status_id: number;
+  total_price: number;
+  instructions?: string;
+  status: 'received' | 'preparing' | 'on-delivery' | 'delivered';
   ordered_at?: string;
   user_rating?: number;
 }
@@ -68,8 +71,19 @@ export interface OrderProduct {
   created_at?: string;
   order_id: number;
   product_id: number;
-  product_variations?: Record<string, any>;
+  product_variation_json?: {
+    id: number;
+    name: string;
+    price: number;
+  } | null;
   price: number;
+}
+
+export interface Customer {
+  id: number;
+  created_at?: string;
+  email: string;
+  name: string;
 }
 
 export interface ProductVariation {

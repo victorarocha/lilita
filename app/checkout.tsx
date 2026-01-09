@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, CreditCard, Smartphone, MapPin } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
 import { Order, OrderStatus } from '@/types';
+import { createOrder, createOrderProducts, getOrCreateCustomer } from '@/lib/database';
 
 type PaymentMethod = 'card' | 'apple' | 'google';
 
@@ -24,10 +26,40 @@ export default function CheckoutScreen() {
 
     setIsProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
+    try {
+      // Get or create customer (using a placeholder email for now)
+      const customer = await getOrCreateCustomer('guest@resort.app', 'Guest User');
+
+      // Create the order in the database
+      const orderInstructions = deliveryLocation.customNote?.trim() || null;
+      console.log('Creating order with instructions:', orderInstructions);
+      
+      const dbOrder = await createOrder({
+        ordering_location_id: Number(deliveryLocation.id),
+        customer_id: customer.id,
+        total_price: total,
+        instructions: orderInstructions,
+        status: 'received', // Default status is 'received'
+      });
+      
+      console.log('Order created:', dbOrder);
+
+      // Create order products with variations
+      const orderProducts = cart.map(item => ({
+        product_id: Number(item.id),
+        price: item.price * item.quantity,
+        product_variation_json: item.selectedVariation ? {
+          id: item.selectedVariation.id,
+          name: item.selectedVariation.name,
+          price: item.selectedVariation.price,
+        } : null,
+      }));
+
+      await createOrderProducts(dbOrder.id, orderProducts);
+
+      // Create local order object for the app
       const order: Order = {
-        id: `ORD${Date.now()}`,
+        id: dbOrder.id.toString(),
         items: cart,
         deliveryLocation,
         status: 'received' as OrderStatus,
@@ -41,7 +73,11 @@ export default function CheckoutScreen() {
       clearCart();
       setIsProcessing(false);
       router.replace('/order-confirmation');
-    }, 2000);
+    } catch (error) {
+      console.error('Error creating order:', error);
+      setIsProcessing(false);
+      Alert.alert('Error', 'Failed to place order. Please try again.');
+    }
   };
 
   if (!deliveryLocation) {

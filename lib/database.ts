@@ -8,7 +8,8 @@ import type {
   Order,
   OrderProduct,
   Currency,
-  ProductVariation
+  ProductVariation,
+  Customer
 } from '@/types/database';
 
 // Fetch all hospitality centers (locations/resorts)
@@ -115,40 +116,72 @@ export async function getProductVariations(productId: number) {
   return data as ProductVariation[];
 }
 
+// Generate a unique order code
+function generateOrderCode(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `ORD-${timestamp}-${randomPart}`;
+}
+
 // Create a new order
 export async function createOrder(orderData: {
-  merchant_id: string;
-  ordering_location_id?: string;
-  total: number;
-  currency_id: string;
-  notes?: string;
+  ordering_location_id: number;
+  customer_id: number;
+  total_price: number;
+  instructions?: string | null;
+  status?: 'received' | 'preparing' | 'on-delivery' | 'delivered';
 }) {
+  const orderCode = generateOrderCode();
+  
+  const insertData: Record<string, unknown> = {
+    order_code: orderCode,
+    ordering_location_id: orderData.ordering_location_id,
+    customer_id: orderData.customer_id,
+    total_price: orderData.total_price,
+    status: orderData.status || 'received',
+    ordered_at: new Date().toISOString(),
+  };
+  
+  // Only add instructions if provided
+  if (orderData.instructions !== undefined && orderData.instructions !== null) {
+    insertData.instructions = orderData.instructions;
+  }
+  
+  console.log('Inserting order data:', insertData);
+  
   const { data, error } = await supabase
     .from('order')
-    .insert({
-      ...orderData,
-      status: 'received',
-    })
+    .insert(insertData)
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error inserting order:', error);
+    throw error;
+  }
+  
+  console.log('Order inserted successfully:', data);
   return data as Order;
 }
 
 // Add products to an order
 export async function createOrderProducts(
-  orderId: string,
+  orderId: number,
   products: Array<{
-    product_id: string;
-    quantity: number;
+    product_id: number;
     price: number;
-    customizations?: string;
+    product_variation_json?: {
+      id: number;
+      name: string;
+      price: number;
+    } | null;
   }>
 ) {
   const orderProducts = products.map((product) => ({
     order_id: orderId,
-    ...product,
+    product_id: product.product_id,
+    price: product.price,
+    product_variation_json: product.product_variation_json || null,
   }));
 
   const { data, error } = await supabase
@@ -158,6 +191,30 @@ export async function createOrderProducts(
 
   if (error) throw error;
   return data as OrderProduct[];
+}
+
+// Get or create a customer by email
+export async function getOrCreateCustomer(email: string, name: string): Promise<Customer> {
+  // First try to find existing customer
+  const { data: existingCustomer, error: findError } = await supabase
+    .from('customer')
+    .select('*')
+    .eq('email', email)
+    .single();
+
+  if (existingCustomer && !findError) {
+    return existingCustomer as Customer;
+  }
+
+  // Create new customer if not found
+  const { data: newCustomer, error: createError } = await supabase
+    .from('customer')
+    .insert({ email, name })
+    .select()
+    .single();
+
+  if (createError) throw createError;
+  return newCustomer as Customer;
 }
 
 // Fetch orders (for order history)
@@ -239,7 +296,7 @@ export async function getOrderById(orderId: string) {
 // Update order status
 export async function updateOrderStatus(
   orderId: string,
-  status: 'received' | 'preparing' | 'out_for_delivery' | 'delivered'
+  status: 'received' | 'preparing' | 'on-delivery' | 'delivered'
 ) {
   const { data, error } = await supabase
     .from('order')

@@ -41,7 +41,7 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
   };
 
   const calculateTotalPrice = () => {
-    const basePrice = selectedVariation ? selectedVariation.price : item.price;
+    const basePrice = item.price + (selectedVariation ? selectedVariation.price : 0);
     return basePrice * quantity;
   };
 
@@ -78,7 +78,7 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
       customizations: customizations || undefined,
       venueId,
       venueName,
-      price: selectedVariation ? selectedVariation.price : item.price,
+      price: item.price + (selectedVariation ? selectedVariation.price : 0),
       selectedVariation: selectedVariation ? {
         id: selectedVariation.id,
         name: selectedVariation.name,
