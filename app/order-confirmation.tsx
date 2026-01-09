@@ -30,8 +30,8 @@ export default function OrderConfirmationScreen() {
 
         <View className="bg-white rounded-card p-6 shadow-soft w-full mb-6">
           <View className="items-center border-b border-sand/50 pb-4 mb-4">
-            <Text className="text-charcoal/60 text-sm mb-1">Order Number</Text>
-            <Text className="text-charcoal font-bold text-2xl">{currentOrder.id}</Text>
+            <Text className="text-charcoal/60 text-sm mb-1">Order Code</Text>
+            <Text className="text-charcoal font-bold text-2xl">{currentOrder.orderCode}</Text>
           </View>
 
           <View className="items-center border-b border-sand/50 pb-4 mb-4">

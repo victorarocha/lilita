@@ -46,6 +46,7 @@ export type OrderStatus = 'received' | 'preparing' | 'delivering' | 'delivered';
 
 export interface Order {
   id: string;
+  orderCode: string;
   items: CartItem[];
   deliveryLocation: DeliveryLocation;
   status: OrderStatus;

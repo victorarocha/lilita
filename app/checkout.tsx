@@ -27,22 +27,29 @@ export default function CheckoutScreen() {
     setIsProcessing(true);
 
     try {
+      // Validate delivery location ID
+      const locationId = Number(deliveryLocation.id);
+      if (isNaN(locationId) || locationId <= 0) {
+        throw new Error('Invalid delivery location');
+      }
+
       // Get or create customer (using a placeholder email for now)
       const customer = await getOrCreateCustomer('guest@resort.app', 'Guest User');
 
       // Create the order in the database
       const orderInstructions = deliveryLocation.customNote?.trim() || null;
-      console.log('Creating order with instructions:', orderInstructions);
       
       const dbOrder = await createOrder({
-        ordering_location_id: Number(deliveryLocation.id),
+        ordering_location_id: locationId,
         customer_id: customer.id,
         total_price: total,
         instructions: orderInstructions,
-        status: 'received', // Default status is 'received'
+        status: 'received',
       });
       
-      console.log('Order created:', dbOrder);
+      if (!dbOrder || !dbOrder.order_code) {
+        throw new Error('Order creation failed - no order code returned');
+      }
 
       // Create order products with variations
       const orderProducts = cart.map(item => ({
@@ -60,6 +67,7 @@ export default function CheckoutScreen() {
       // Create local order object for the app
       const order: Order = {
         id: dbOrder.id.toString(),
+        orderCode: dbOrder.order_code,
         items: cart,
         deliveryLocation,
         status: 'received' as OrderStatus,
@@ -73,10 +81,11 @@ export default function CheckoutScreen() {
       clearCart();
       setIsProcessing(false);
       router.replace('/order-confirmation');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating order:', error);
       setIsProcessing(false);
-      Alert.alert('Error', 'Failed to place order. Please try again.');
+      const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
+      Alert.alert('Error', `Failed to place order: ${errorMessage}`);
     }
   };
 
