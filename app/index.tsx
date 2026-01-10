@@ -6,17 +6,28 @@ import { VenueCard } from "@/components/VenueCard";
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { getMerchantsByCenter } from "@/lib/database";
 import { useApp } from "@/context/AppContext";
+import { useClerk } from "@/context/ClerkContext";
+import { useRouter } from "expo-router";
 
 export default function HomeScreen() {
   const { resortName, hospitalityCenterId } = useApp();
+  const { isLoaded, isSignedIn, user } = useClerk();
+  const router = useRouter();
   const [venues, setVenues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isLoaded) return;
+    
+    if (!isSignedIn) {
+      router.replace('/login');
+      return;
+    }
+
     if (hospitalityCenterId) {
       loadVenues();
     }
-  }, [hospitalityCenterId]);
+  }, [isLoaded, isSignedIn, hospitalityCenterId]);
 
   const loadVenues = async () => {
     if (!hospitalityCenterId) return;
@@ -52,7 +63,7 @@ export default function HomeScreen() {
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
           <View className="px-6 pt-6 pb-24">
             <Text className="text-charcoal text-3xl font-bold mb-2">
-              Good Afternoon
+              Good Afternoon{user?.first_name ? `, ${user.first_name}` : ''}
             </Text>
             <Text className="text-charcoal/60 text-base mb-6">
               What can we bring to you today?

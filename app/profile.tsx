@@ -1,40 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, ScrollView, ActivityIndicator, Image, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, Mail, Calendar, LogOut } from 'lucide-react-native';
 import { BottomTabBar } from '@/components/BottomTabBar';
-import { getCustomerById } from '@/lib/database';
-import { Customer } from '@/types/database';
-
-// Default user ID (customer with id=2 as per requirement)
-const DEFAULT_USER_ID = 2;
+import { useClerk } from '@/context/ClerkContext';
+import { useRouter } from 'expo-router';
 
 export default function ProfileScreen() {
-  const [customer, setCustomer] = useState<Customer | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { isSignedIn, isLoaded, user, customer, signOut, syncCustomer } = useClerk();
+  const router = useRouter();
 
   useEffect(() => {
-    loadCustomer();
-  }, []);
-
-  const loadCustomer = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getCustomerById(DEFAULT_USER_ID);
-      if (data) {
-        setCustomer(data);
-      } else {
-        setError('User not found');
-      }
-    } catch (err) {
-      console.error('Error loading customer:', err);
-      setError('Failed to load profile');
-    } finally {
-      setLoading(false);
+    if (isLoaded && !isSignedIn) {
+      // Redirect to login if not signed in
+      router.replace('/login');
     }
-  };
+  }, [isLoaded, isSignedIn]);
+
+  // Sync customer if not yet loaded
+  useEffect(() => {
+    if (isSignedIn && !customer) {
+      syncCustomer();
+    }
+  }, [isSignedIn, customer]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -46,6 +34,27 @@ export default function ProfileScreen() {
     });
   };
 
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
+  };
+
+  // Show loading while Clerk is loading or if signed in but customer not yet loaded
+  const loading = !isLoaded || (isSignedIn && !customer && !user);
+
   return (
     <SafeAreaView className="flex-1 bg-cream" edges={['top']}>
       <View className="flex-1">
@@ -55,19 +64,19 @@ export default function ProfileScreen() {
               <ActivityIndicator size="large" color="#00A896" />
               <Text className="text-charcoal/60 mt-4">Loading profile...</Text>
             </View>
-          ) : error ? (
+          ) : !isSignedIn ? (
             <View className="p-6">
               <View className="bg-coral/10 rounded-card p-6">
-                <Text className="text-coral text-center font-semibold">{error}</Text>
+                <Text className="text-coral text-center font-semibold">Please sign in to view your profile</Text>
               </View>
             </View>
-          ) : customer ? (
+          ) : (
             <View className="p-6">
               {/* Profile Avatar */}
               <View className="items-center mb-8">
-                {customer.picture_url ? (
+                {user?.imageUrl || user?.profile_image_url ? (
                   <Image 
-                    source={{ uri: customer.picture_url }}
+                    source={{ uri: user?.imageUrl || user?.profile_image_url }}
                     className="w-28 h-28 rounded-full mb-4"
                     style={{ backgroundColor: '#E8DFD0' }}
                   />
@@ -76,8 +85,15 @@ export default function ProfileScreen() {
                     <User size={56} color="#FAF7F2" />
                   </View>
                 )}
-                <Text className="text-charcoal font-bold text-2xl">{customer.name}</Text>
-                <Text className="text-charcoal/60 mt-1">Guest User</Text>
+                <Text className="text-charcoal font-bold text-2xl">
+                  {customer?.full_name || 
+                    (user?.firstName && user?.lastName 
+                      ? `${user.firstName} ${user.lastName}`
+                      : user?.fullName || 'User')}
+                </Text>
+                <Text className="text-charcoal/60 mt-1">
+                  {customer?.email || user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress}
+                </Text>
               </View>
 
               {/* Profile Details Card */}
@@ -91,7 +107,12 @@ export default function ProfileScreen() {
                   </View>
                   <View className="flex-1">
                     <Text className="text-charcoal/60 text-sm">Full Name</Text>
-                    <Text className="text-charcoal font-semibold text-base">{customer.name}</Text>
+                    <Text className="text-charcoal font-semibold text-base">
+                      {customer?.full_name || 
+                        (user?.firstName && user?.lastName 
+                          ? `${user.firstName} ${user.lastName}`
+                          : user?.fullName || 'N/A')}
+                    </Text>
                   </View>
                 </View>
 
@@ -102,22 +123,41 @@ export default function ProfileScreen() {
                   </View>
                   <View className="flex-1">
                     <Text className="text-charcoal/60 text-sm">Email Address</Text>
-                    <Text className="text-charcoal font-semibold text-base">{customer.email}</Text>
+                    <Text className="text-charcoal font-semibold text-base">
+                      {customer?.email || user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || 'N/A'}
+                    </Text>
                   </View>
                 </View>
 
                 {/* Member Since */}
-                <View className="flex-row items-center py-4">
+                <View className="flex-row items-center py-4 border-b border-sand/50">
                   <View className="bg-sand rounded-full p-3 mr-4">
                     <Calendar size={20} color="#3E3D38" />
                   </View>
                   <View className="flex-1">
                     <Text className="text-charcoal/60 text-sm">Member Since</Text>
                     <Text className="text-charcoal font-semibold text-base">
-                      {formatDate(customer.created_at)}
+                      {customer?.created_at 
+                        ? formatDate(customer.created_at)
+                        : user?.createdAt 
+                          ? formatDate(new Date(user.createdAt).toISOString())
+                          : 'N/A'}
                     </Text>
                   </View>
                 </View>
+
+                {/* Sign Out Button */}
+                <TouchableOpacity 
+                  onPress={handleSignOut}
+                  className="flex-row items-center py-4 mt-2"
+                >
+                  <View className="bg-coral/10 rounded-full p-3 mr-4">
+                    <LogOut size={20} color="#FF6B6B" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-coral font-semibold text-base">Sign Out</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
 
               {/* Info Card */}
@@ -127,7 +167,7 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             </View>
-          ) : null}
+          )}
         </ScrollView>
 
         <BottomTabBar />

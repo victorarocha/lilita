@@ -59,6 +59,39 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          clerk_user_id: string | null
+          created_at: string | null
+          email: string
+          first_name: string | null
+          full_name: string | null
+          id: string
+          last_name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          clerk_user_id?: string | null
+          created_at?: string | null
+          email: string
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          clerk_user_id?: string | null
+          created_at?: string | null
+          email?: string
+          first_name?: string | null
+          full_name?: string | null
+          id?: string
+          last_name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       hospitality_center: {
         Row: {
           created_at: string

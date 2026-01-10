@@ -209,7 +209,7 @@ export async function createOrderProducts(
 export async function getOrCreateCustomer(email: string, name: string): Promise<Customer> {
   // First try to find existing customer
   const { data: existingCustomer, error: findError } = await supabase
-    .from('customer')
+    .from('customers')
     .select('*')
     .eq('email', email)
     .single();
@@ -220,7 +220,7 @@ export async function getOrCreateCustomer(email: string, name: string): Promise<
 
   // Create new customer if not found
   const { data: newCustomer, error: createError } = await supabase
-    .from('customer')
+    .from('customers')
     .insert({ email, name })
     .select()
     .single();
@@ -344,7 +344,7 @@ export async function updateOrderFeedback(
 // Get customer by ID
 export async function getCustomerById(customerId: number): Promise<Customer | null> {
   const { data, error } = await supabase
-    .from('customer')
+    .from('customers')
     .select('*')
     .eq('id', customerId)
     .single();
@@ -356,8 +356,21 @@ export async function getCustomerById(customerId: number): Promise<Customer | nu
   return data as Customer;
 }
 
-// Get orders by customer ID
-export async function getOrdersByCustomerId(customerId: number): Promise<Order[]> {
+// UUID validation utility
+export function isValidUUID(id?: string): boolean {
+  if (!id || typeof id !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+}
+
+// Get orders by customer ID (UUID)
+export async function getOrdersByCustomerId(customerId: string): Promise<Order[]> {
+  // Validate UUID before querying
+  if (!isValidUUID(customerId)) {
+    console.warn('getOrdersByCustomerId: Invalid UUID provided:', customerId);
+    return [];
+  }
+
   const { data, error } = await supabase
     .from('order')
     .select(`
@@ -385,4 +398,27 @@ export async function getOrdersByCustomerId(customerId: number): Promise<Order[]
     return [];
   }
   return data as Order[];
+}
+
+// Get orders by clerk user ID (looks up customer first then fetches orders)
+export async function getOrdersByClerkUserId(clerkUserId: string): Promise<Order[]> {
+  if (!clerkUserId) {
+    console.warn('getOrdersByClerkUserId: No clerk user ID provided');
+    return [];
+  }
+
+  // First, get the customer by clerk_user_id
+  const { data: customer, error: customerError } = await supabase
+    .from('customers')
+    .select('id')
+    .eq('clerk_user_id', clerkUserId)
+    .single();
+
+  if (customerError || !customer) {
+    console.warn('getOrdersByClerkUserId: Customer not found for clerk_user_id:', clerkUserId);
+    return [];
+  }
+
+  // Now fetch orders using the customer's UUID
+  return getOrdersByCustomerId(customer.id);
 }

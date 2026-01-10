@@ -18,11 +18,9 @@ import {
 import { useApp } from "@/context/AppContext";
 import { BottomTabBar } from "@/components/BottomTabBar";
 import { Order, OrderStatus } from "@/types";
-import { getOrdersByCustomerId } from "@/lib/database";
+import { getOrdersByCustomerId, getOrdersByClerkUserId } from "@/lib/database";
 import { supabase } from "@/lib/supabase";
-
-// Default user ID (customer with id=2 as per requirement)
-const DEFAULT_USER_ID = 2;
+import { useClerk } from "@/context/ClerkContext";
 
 const getStatusConfig = (status: OrderStatus) => {
   switch (status) {
@@ -115,15 +113,25 @@ function OrderCard({ order, isCurrent }: OrderCardProps) {
 
 export default function MyOrdersScreen() {
   const { currentOrder, orderHistory } = useApp();
+  const { isSignedIn, isLoaded, user, customer } = useClerk();
   const [dbOrders, setDbOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Load orders when customer is available
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (isLoaded && isSignedIn && (customer?.id || user?.id)) {
+      loadOrders();
+    } else if (isLoaded && !isSignedIn) {
+      setLoading(false);
+      setDbOrders([]);
+    }
+  }, [isLoaded, isSignedIn, customer?.id, user?.id]);
 
   // Subscribe to real-time updates for order status changes
   useEffect(() => {
+    // Only subscribe if we have a customer ID
+    if (!customer?.id) return;
+
     const channel = supabase
       .channel("my-orders-updates")
       .on(
@@ -132,7 +140,7 @@ export default function MyOrdersScreen() {
           event: "UPDATE",
           schema: "public",
           table: "order",
-          filter: `customer_id=eq.${DEFAULT_USER_ID}`,
+          filter: `customer_id=eq.${customer.id}`,
         },
         (payload) => {
           const updatedOrder = payload.new;
@@ -151,7 +159,7 @@ export default function MyOrdersScreen() {
           event: "INSERT",
           schema: "public",
           table: "order",
-          filter: `customer_id=eq.${DEFAULT_USER_ID}`,
+          filter: `customer_id=eq.${customer.id}`,
         },
         () => {
           // Reload orders when a new order is inserted
@@ -163,13 +171,22 @@ export default function MyOrdersScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [customer?.id]);
 
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const orders = await getOrdersByCustomerId(DEFAULT_USER_ID);
-      setDbOrders(orders);
+      
+      // Prefer customer ID (UUID) from context, fallback to clerk user ID
+      if (customer?.id) {
+        const orders = await getOrdersByCustomerId(customer.id);
+        setDbOrders(orders);
+      } else if (user?.id) {
+        const orders = await getOrdersByClerkUserId(user.id);
+        setDbOrders(orders);
+      } else {
+        setDbOrders([]);
+      }
     } catch (error) {
       console.error("Error loading orders:", error);
     } finally {
