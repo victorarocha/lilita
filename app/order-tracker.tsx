@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle, Clock, Truck, MapPin, Phone, MessageCircle } fr
 import { useApp } from '@/context/AppContext';
 import { OrderStatus } from '@/types';
 import { getOrderById } from '@/lib/database';
+import { supabase } from '@/lib/supabase';
 
 const statusSteps: { status: string; label: string; icon: any }[] = [
   { status: 'received', label: 'Order Received', icon: CheckCircle },
@@ -28,6 +29,35 @@ export default function OrderTrackerScreen() {
       router.replace('/');
     }
   }, [orderId, currentOrder]);
+
+  // Subscribe to real-time updates for order status changes
+  useEffect(() => {
+    if (!orderId) return;
+
+    const channel = supabase
+      .channel(`order-${orderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'order',
+          filter: `id=eq.${orderId}`,
+        },
+        (payload) => {
+          const updatedOrder = payload.new;
+          setDbOrder((prev: any) => ({ ...prev, ...updatedOrder }));
+          if (updatedOrder.status) {
+            setCurrentStatus(updatedOrder.status as OrderStatus);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orderId]);
 
   const loadOrderFromDb = async () => {
     if (!orderId) return;
@@ -172,10 +202,13 @@ export default function OrderTrackerScreen() {
               </TouchableOpacity>
             </View>
 
-            {currentStatus === 'delivered' && (
+            {currentStatus === 'delivered' && !dbOrder?.user_rating && (
               <View className="mt-6">
                 <TouchableOpacity
-                  onPress={() => router.push('/rating')}
+                  onPress={() => {
+                    setCurrentOrder(dbOrder);
+                    router.push('/rating');
+                  }}
                   className="bg-coral rounded-button py-4 items-center active:scale-95"
                   activeOpacity={0.9}
                 >

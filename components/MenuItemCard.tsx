@@ -1,10 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, TextInput, Alert, ScrollView, ActivityIndicator, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
-import { Plus, X, Minus, Check } from 'lucide-react-native';
-import { MenuItem } from '@/types';
-import { useApp } from '@/context/AppContext';
-import { getProductVariations } from '@/lib/database';
-import { ProductVariation } from '@/types/database';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  Modal,
+  TextInput,
+  Alert,
+  ScrollView,
+  ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { Plus, X, Minus, Check } from "lucide-react-native";
+import { MenuItem } from "@/types";
+import { useApp } from "@/context/AppContext";
+import { getProductVariations } from "@/lib/database";
+import { ProductVariation } from "@/types/database";
 
 interface MenuItemCardProps {
   item: MenuItem;
@@ -15,9 +29,10 @@ interface MenuItemCardProps {
 export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [customizations, setCustomizations] = useState('');
+  const [customizations, setCustomizations] = useState("");
   const [variations, setVariations] = useState<ProductVariation[]>([]);
-  const [selectedVariation, setSelectedVariation] = useState<ProductVariation | null>(null);
+  const [selectedVariation, setSelectedVariation] =
+    useState<ProductVariation | null>(null);
   const [loadingVariations, setLoadingVariations] = useState(false);
   const { addToCart, cartVenueId, cartVenueName, clearCart } = useApp();
 
@@ -34,14 +49,15 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
       setVariations(data);
       setSelectedVariation(null);
     } catch (error) {
-      console.error('Error fetching product variations:', error);
+      console.error("Error fetching product variations:", error);
     } finally {
       setLoadingVariations(false);
     }
   };
 
   const calculateTotalPrice = () => {
-    const basePrice = item.price + (selectedVariation ? selectedVariation.price : 0);
+    const basePrice =
+      item.price + (selectedVariation ? selectedVariation.price : 0);
     return basePrice * quantity;
   };
 
@@ -49,22 +65,22 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
     // Check if cart has items from a different venue
     if (cartVenueId && cartVenueId !== venueId) {
       Alert.alert(
-        'Different Venue',
+        "Different Venue",
         `Your cart contains items from ${cartVenueName}. Would you like to clear your cart and add items from ${venueName}?`,
         [
           {
-            text: 'Cancel',
-            style: 'cancel',
+            text: "Cancel",
+            style: "cancel",
           },
           {
-            text: 'Clear Cart',
-            style: 'destructive',
+            text: "Clear Cart",
+            style: "destructive",
             onPress: () => {
               clearCart();
               addItemToCart();
             },
           },
-        ]
+        ],
       );
       return;
     }
@@ -79,16 +95,18 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
       venueId,
       venueName,
       price: item.price + (selectedVariation ? selectedVariation.price : 0),
-      selectedVariation: selectedVariation ? {
-        id: selectedVariation.id,
-        name: selectedVariation.name,
-        price: selectedVariation.price,
-      } : undefined,
+      selectedVariation: selectedVariation
+        ? {
+            id: selectedVariation.id,
+            name: selectedVariation.name,
+            price: selectedVariation.price,
+          }
+        : undefined,
     };
     addToCart(cartItem);
     setModalVisible(false);
     setQuantity(1);
-    setCustomizations('');
+    setCustomizations("");
     setSelectedVariation(null);
   };
 
@@ -99,23 +117,35 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
         className="bg-white rounded-card overflow-hidden mb-4 shadow-soft flex-row active:scale-[0.98]"
         activeOpacity={0.9}
       >
-        <Image source={{ uri: item.image }} className="w-28 h-28" resizeMode="cover" />
+        <View className="overflow-hidden items-center justify-center h-[150px]">
+          <Image
+            source={{ uri: item.image }}
+            style={{
+              width: 150,
+              height: 150,
+            }}
+            resizeMode="cover"
+          />
+        </View>
         <View className="flex-1 p-4 justify-between">
           <View>
-            <Text className="text-charcoal font-bold text-base mb-1">{item.name}</Text>
+            <Text className="text-charcoal font-bold text-base mb-1">
+              {item.name}
+            </Text>
             <Text className="text-charcoal/60 text-sm mb-2" numberOfLines={2}>
               {item.description}
             </Text>
           </View>
           <View className="flex-row items-center justify-between">
-            <Text className="text-turquoise font-bold text-lg">${item.price}</Text>
+            <Text className="text-turquoise font-bold text-lg">
+              ${item.price}
+            </Text>
             <View className="bg-coral rounded-full p-1.5">
               <Plus size={18} color="#FAF7F2" />
             </View>
           </View>
         </View>
       </TouchableOpacity>
-
       {/* Product Detail Modal */}
       <Modal
         visible={modalVisible}
@@ -124,14 +154,32 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
         onRequestClose={() => setModalVisible(false)}
       >
         <View className="flex-1 bg-black/50 justify-end">
-          <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={{ maxHeight: '92%' }}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ maxHeight: "92%" }}
           >
             <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View className="bg-cream rounded-t-3xl" style={{ maxHeight: '100%' }}>
+              <View
+                className="bg-cream rounded-t-3xl"
+                style={{ maxHeight: "100%" }}
+              >
                 <View className="relative">
-                  <Image source={{ uri: item.image }} className="w-full h-56" resizeMode="cover" style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
+                  <View
+                    className="w-full h-56 overflow-hidden items-center justify-center"
+                    style={{
+                      borderTopLeftRadius: 24,
+                      borderTopRightRadius: 24,
+                    }}
+                  >
+                    <Image
+                      source={{ uri: item.image }}
+                      style={{
+                        width: 500,
+                        height: 280,
+                      }}
+                      resizeMode="cover"
+                    />
+                  </View>
                   <TouchableOpacity
                     onPress={() => setModalVisible(false)}
                     className="absolute top-4 right-4 bg-white/90 rounded-full p-2 shadow-soft"
@@ -141,19 +189,28 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView 
+                <ScrollView
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                 >
                   <View className="p-6 pb-8">
-                    <Text className="text-charcoal font-bold text-2xl mb-2">{item.name}</Text>
-                    <Text className="text-charcoal/70 text-base mb-4">{item.description}</Text>
-                    
+                    <Text className="text-charcoal font-bold text-2xl mb-2">
+                      {item.name}
+                    </Text>
+                    <Text className="text-charcoal/70 text-base mb-4">
+                      {item.description}
+                    </Text>
+
                     {item.dietary && item.dietary.length > 0 && (
                       <View className="flex-row mb-4">
                         {item.dietary.map((diet, index) => (
-                          <View key={index} className="bg-turquoise/10 rounded-full px-3 py-1.5 mr-2">
-                            <Text className="text-turquoise text-sm font-semibold">{diet}</Text>
+                          <View
+                            key={index}
+                            className="bg-turquoise/10 rounded-full px-3 py-1.5 mr-2"
+                          >
+                            <Text className="text-turquoise text-sm font-semibold">
+                              {diet}
+                            </Text>
                           </View>
                         ))}
                       </View>
@@ -164,46 +221,65 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
                       <View className="py-4 items-center">
                         <ActivityIndicator size="small" color="#00A896" />
                       </View>
-                    ) : variations.length > 0 && (
-                      <View className="mb-4">
-                        <Text className="text-charcoal/60 text-sm mb-2">Select Variation (Optional)</Text>
-                        <View className="flex-row flex-wrap">
-                          {variations.map((variation) => {
-                            const isSelected = selectedVariation?.id === variation.id;
-                            return (
-                              <TouchableOpacity
-                                key={variation.id}
-                                onPress={() => setSelectedVariation(isSelected ? null : variation)}
-                                className={`mr-2 mb-2 px-4 py-2.5 rounded-full flex-row items-center ${
-                                  isSelected ? 'bg-turquoise' : 'bg-sand'
-                                }`}
-                                activeOpacity={0.8}
-                              >
-                                {isSelected && (
-                                  <Check size={14} color="#FAF7F2" style={{ marginRight: 6 }} />
-                                )}
-                                <Text
-                                  className={`font-semibold ${
-                                    isSelected ? 'text-white' : 'text-charcoal'
+                    ) : (
+                      variations.length > 0 && (
+                        <View className="mb-4">
+                          <Text className="text-charcoal/60 text-sm mb-2">
+                            Select Variation (Optional)
+                          </Text>
+                          <View className="flex-row flex-wrap">
+                            {variations.map((variation) => {
+                              const isSelected =
+                                selectedVariation?.id === variation.id;
+                              return (
+                                <TouchableOpacity
+                                  key={variation.id}
+                                  onPress={() =>
+                                    setSelectedVariation(
+                                      isSelected ? null : variation,
+                                    )
+                                  }
+                                  className={`mr-2 mb-2 px-4 py-2.5 rounded-full flex-row items-center ${
+                                    isSelected ? "bg-turquoise" : "bg-sand"
                                   }`}
+                                  activeOpacity={0.8}
                                 >
-                                  {variation.name}
-                                </Text>
-                                <Text
-                                  className={`ml-2 ${
-                                    isSelected ? 'text-white/80' : 'text-charcoal/60'
-                                  }`}
-                                >
-                                  ${variation.price.toFixed(2)}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
+                                  {isSelected && (
+                                    <Check
+                                      size={14}
+                                      color="#FAF7F2"
+                                      style={{ marginRight: 6 }}
+                                    />
+                                  )}
+                                  <Text
+                                    className={`font-semibold ${
+                                      isSelected
+                                        ? "text-white"
+                                        : "text-charcoal"
+                                    }`}
+                                  >
+                                    {variation.name}
+                                  </Text>
+                                  <Text
+                                    className={`ml-2 ${
+                                      isSelected
+                                        ? "text-white/80"
+                                        : "text-charcoal/60"
+                                    }`}
+                                  >
+                                    ${variation.price.toFixed(2)}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </View>
                         </View>
-                      </View>
+                      )
                     )}
 
-                    <Text className="text-charcoal/60 text-sm mb-2">Special Instructions (Optional)</Text>
+                    <Text className="text-charcoal/60 text-sm mb-2">
+                      Special Instructions (Optional)
+                    </Text>
                     <TextInput
                       value={customizations}
                       onChangeText={setCustomizations}
@@ -216,7 +292,9 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
                     />
 
                     <View className="flex-row items-center justify-between mb-6">
-                      <Text className="text-charcoal text-base font-semibold">Quantity</Text>
+                      <Text className="text-charcoal text-base font-semibold">
+                        Quantity
+                      </Text>
                       <View className="flex-row items-center">
                         <TouchableOpacity
                           onPress={() => setQuantity(Math.max(1, quantity - 1))}
@@ -225,7 +303,9 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
                         >
                           <Minus size={20} color="#3E3D38" />
                         </TouchableOpacity>
-                        <Text className="text-charcoal font-bold text-xl mx-6">{quantity}</Text>
+                        <Text className="text-charcoal font-bold text-xl mx-6">
+                          {quantity}
+                        </Text>
                         <TouchableOpacity
                           onPress={() => setQuantity(quantity + 1)}
                           className="bg-coral rounded-full p-2"

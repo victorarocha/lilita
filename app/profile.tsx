@@ -49,11 +49,6 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView className="flex-1 bg-cream" edges={['top']}>
       <View className="flex-1">
-        {/* Header */}
-        <View className="bg-white px-6 py-4 border-b border-sand/50">
-          <Text className="text-charcoal font-bold text-xl text-center">Profile</Text>
-        </View>
-
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
           {loading ? (
             <View className="py-20 items-center">

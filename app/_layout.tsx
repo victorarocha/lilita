@@ -41,7 +41,7 @@ export default function RootLayout() {
             animation: 'slide_from_right',
           })}
         >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false, animation: 'none' }} />
           <Stack.Screen name="venue/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="cart" options={{ headerShown: false }} />
           <Stack.Screen name="delivery-location" options={{ headerShown: false }} />
@@ -49,8 +49,8 @@ export default function RootLayout() {
           <Stack.Screen name="order-confirmation" options={{ headerShown: false }} />
           <Stack.Screen name="order-tracker" options={{ headerShown: false }} />
           <Stack.Screen name="rating" options={{ headerShown: false }} />
-          <Stack.Screen name="my-orders" options={{ headerShown: false }} />
-          <Stack.Screen name="profile" options={{ headerShown: false }} />
+          <Stack.Screen name="my-orders" options={{ headerShown: false, animation: 'none' }} />
+          <Stack.Screen name="profile" options={{ headerShown: false, animation: 'none' }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

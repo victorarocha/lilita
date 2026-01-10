@@ -41,18 +41,21 @@ export type Database = {
           email: string
           id: number
           name: string
+          picture_url: string | null
         }
         Insert: {
           created_at?: string
           email: string
           id?: number
           name: string
+          picture_url?: string | null
         }
         Update: {
           created_at?: string
           email?: string
           id?: number
           name?: string
+          picture_url?: string | null
         }
         Relationships: []
       }
@@ -125,32 +128,50 @@ export type Database = {
         Row: {
           created_at: string
           customer_id: number
+          hospitality_center_id: number | null
           id: number
+          instructions: string | null
+          merchant_id: number | null
           order_code: string
           ordered_at: string | null
           ordering_location_id: number
-          status_id: number
+          status: Database["public"]["Enums"]["order_status"] | null
+          tip: number | null
+          total_price: number
           user_rating: number | null
+          user_rating_feedback: string | null
         }
         Insert: {
           created_at?: string
           customer_id: number
+          hospitality_center_id?: number | null
           id?: number
+          instructions?: string | null
+          merchant_id?: number | null
           order_code: string
           ordered_at?: string | null
           ordering_location_id: number
-          status_id?: number
+          status?: Database["public"]["Enums"]["order_status"] | null
+          tip?: number | null
+          total_price: number
           user_rating?: number | null
+          user_rating_feedback?: string | null
         }
         Update: {
           created_at?: string
           customer_id?: number
+          hospitality_center_id?: number | null
           id?: number
+          instructions?: string | null
+          merchant_id?: number | null
           order_code?: string
           ordered_at?: string | null
           ordering_location_id?: number
-          status_id?: number
+          status?: Database["public"]["Enums"]["order_status"] | null
+          tip?: number | null
+          total_price?: number
           user_rating?: number | null
+          user_rating_feedback?: string | null
         }
         Relationships: [
           {
@@ -161,17 +182,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "order_hospitality_center_id_fkey"
+            columns: ["hospitality_center_id"]
+            isOneToOne: false
+            referencedRelation: "hospitality_center"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_merchant_id_fkey"
+            columns: ["merchant_id"]
+            isOneToOne: false
+            referencedRelation: "merchant"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "order_ordering_location_id_fkey"
             columns: ["ordering_location_id"]
             isOneToOne: false
             referencedRelation: "ordering_location"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "order_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "status"
             referencedColumns: ["id"]
           },
         ]
@@ -180,6 +208,7 @@ export type Database = {
         Row: {
           created_at: string
           id: number
+          instructions: string | null
           order_id: number
           price: number
           product_id: number
@@ -188,6 +217,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: number
+          instructions?: string | null
           order_id: number
           price: number
           product_id: number
@@ -196,6 +226,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: number
+          instructions?: string | null
           order_id?: number
           price?: number
           product_id?: number
@@ -387,7 +418,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      order_status: "received" | "preparing" | "on-delivery" | "delivered"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -514,6 +545,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      order_status: ["received", "preparing", "on-delivery", "delivered"],
+    },
   },
 } as const

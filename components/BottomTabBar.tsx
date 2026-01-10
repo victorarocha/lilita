@@ -28,13 +28,13 @@ export function BottomTabBar() {
   return (
     <View 
       className="bg-white border-t border-sand/50"
-      style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+      style={{ paddingBottom: Math.max(insets.bottom, 6) }}
     >
       {/* View Cart Button */}
       {itemCount > 0 && (
         <TouchableOpacity
           onPress={() => router.push('/cart')}
-          className="bg-coral mx-4 mt-3 rounded-button flex-row items-center justify-center py-3 active:scale-95"
+          className="bg-coral mx-4 mt-2 rounded-button flex-row items-center justify-center py-2.5 active:scale-95"
           activeOpacity={0.9}
         >
           <ShoppingBag size={20} color="#FAF7F2" />
@@ -46,7 +46,7 @@ export function BottomTabBar() {
       )}
       
       {/* Tab Navigation */}
-      <View className="flex-row items-center justify-around px-4 py-3">
+      <View className="flex-row items-center justify-around px-4 py-1.5">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = isTabActive(tab.route);
@@ -55,12 +55,12 @@ export function BottomTabBar() {
             <TouchableOpacity
               key={tab.id}
               onPress={() => router.push(tab.route as any)}
-              className="items-center justify-center flex-1 py-2"
+              className="items-center justify-center flex-1 py-1"
               activeOpacity={0.7}
             >
-              <Icon size={24} color={isActive ? '#00A896' : '#3E3D38'} opacity={isActive ? 1 : 0.5} />
+              <Icon size={20} color={isActive ? '#00A896' : '#3E3D38'} opacity={isActive ? 1 : 0.5} />
               <Text
-                className={`text-xs mt-1 font-semibold ${
+                className={`text-xs mt-0.5 font-semibold ${
                   isActive ? 'text-turquoise' : 'text-charcoal/50'
                 }`}
               >
