@@ -53,8 +53,8 @@ export default function OrderTrackerScreen() {
           <View className="p-6">
             {/* Order Info */}
             <View className="bg-white rounded-card p-6 shadow-soft mb-6">
-              <Text className="text-charcoal/60 text-sm mb-1">Order Number</Text>
-              <Text className="text-charcoal font-bold text-xl">{currentOrder.id}</Text>
+              <Text className="text-charcoal/60 text-sm mb-1">Order Code</Text>
+              <Text className="text-charcoal font-bold text-xl">{currentOrder.orderCode}</Text>
               {currentOrder.items.length > 0 && currentOrder.items[0].venueName && (
                 <Text className="text-charcoal/60 text-sm mb-4">from {currentOrder.items[0].venueName}</Text>
               )}
