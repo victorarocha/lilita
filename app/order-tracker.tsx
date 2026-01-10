@@ -60,7 +60,9 @@ export default function OrderTrackerScreen() {
   // Use dbOrder if available, otherwise use currentOrder from context
   const orderData = dbOrder || currentOrder;
   const orderCode = dbOrder?.order_code || currentOrder?.orderCode;
-  const merchantName = dbOrder?.merchant?.name || (currentOrder?.items?.length > 0 ? currentOrder.items[0].venueName : null);
+  const merchantName =
+    dbOrder?.merchant?.name ||
+    (currentOrder?.items?.length ? currentOrder.items[0]?.venueName : null);
   const deliveryLocationName = dbOrder?.ordering_location?.name || currentOrder?.deliveryLocation?.name;
   const deliveryLocationNote = dbOrder?.instructions || currentOrder?.deliveryLocation?.customNote;
   const hospitalityCenterName = dbOrder?.hospitality_center?.name;
