@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, MapPin, Armchair, Waves, House, Sun } from 'lucide-react-native';
@@ -30,6 +30,7 @@ export default function DeliveryLocationScreen() {
   const [locations, setLocations] = useState<OrderingLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     async function fetchLocations() {
@@ -71,110 +72,129 @@ export default function DeliveryLocationScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-cream">
-      <View className="flex-1">
-        <View className="bg-white px-6 py-4 border-b border-sand/50 flex-row items-center">
-          <TouchableOpacity onPress={() => router.back()} className="mr-4" activeOpacity={0.8}>
-            <ArrowLeft size={24} color="#3E3D38" />
-          </TouchableOpacity>
-          <Text className="text-charcoal font-bold text-xl">Delivery Location</Text>
-        </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View className="flex-1">
+            <View className="bg-white px-6 py-4 border-b border-sand/50 flex-row items-center">
+              <TouchableOpacity onPress={() => router.back()} className="mr-4" activeOpacity={0.8}>
+                <ArrowLeft size={24} color="#3E3D38" />
+              </TouchableOpacity>
+              <Text className="text-charcoal font-bold text-xl">Delivery Location</Text>
+            </View>
 
-        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-          <View className="p-6">
-            <Text className="text-charcoal text-lg font-bold mb-4">
-              Where should we deliver your order?
-            </Text>
-
-            {loading ? (
-              <View className="py-12 items-center">
-                <ActivityIndicator size="large" color="#00A896" />
-                <Text className="text-charcoal/60 mt-4">Loading delivery locations...</Text>
-              </View>
-            ) : error ? (
-              <View className="bg-coral/10 rounded-card p-4 mb-4">
-                <Text className="text-coral text-center">{error}</Text>
-              </View>
-            ) : locations.length === 0 ? (
-              <View className="bg-sand rounded-card p-6 mb-4">
-                <Text className="text-charcoal text-center">
-                  No delivery locations available for this center
+            <ScrollView 
+              ref={scrollViewRef}
+              className="flex-1" 
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="p-6">
+                <Text className="text-charcoal text-lg font-bold mb-4">
+                  Where should we deliver your order?
                 </Text>
+
+                {loading ? (
+                  <View className="py-12 items-center">
+                    <ActivityIndicator size="large" color="#00A896" />
+                    <Text className="text-charcoal/60 mt-4">Loading delivery locations...</Text>
+                  </View>
+                ) : error ? (
+                  <View className="bg-coral/10 rounded-card p-4 mb-4">
+                    <Text className="text-coral text-center">{error}</Text>
+                  </View>
+                ) : locations.length === 0 ? (
+                  <View className="bg-sand rounded-card p-6 mb-4">
+                    <Text className="text-charcoal text-center">
+                      No delivery locations available for this center
+                    </Text>
+                  </View>
+                ) : (
+                  locations.map((location) => {
+                    const Icon = getLocationIcon(location.type || 'custom');
+                    const isSelected = selectedLocation?.id === location.id;
+
+                    return (
+                      <TouchableOpacity
+                        key={location.id}
+                        onPress={() => setSelectedLocation(location)}
+                        className={`bg-white rounded-card p-4 mb-3 shadow-soft flex-row items-center ${
+                          isSelected ? 'border-2 border-turquoise' : 'border border-transparent'
+                        }`}
+                        activeOpacity={0.8}
+                      >
+                        <View
+                          className={`rounded-full p-3 mr-3 ${
+                            isSelected ? 'bg-turquoise' : 'bg-sand'
+                          }`}
+                        >
+                          <Icon size={22} color={isSelected ? '#FAF7F2' : '#3E3D38'} />
+                        </View>
+                        <View className="flex-1">
+                          <Text className="text-charcoal font-semibold text-base">
+                            {location.name}
+                          </Text>
+                          {location.type && (
+                            <Text className="text-charcoal/60 text-sm capitalize">
+                              Area de {location.type}
+                            </Text>
+                          )}
+                        </View>
+                        {isSelected && (
+                          <View className="bg-turquoise rounded-full w-6 h-6 items-center justify-center">
+                            <Text className="text-white font-bold">✓</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+
+                {selectedLocation && (
+                  <View className="mt-4">
+                    <Text className="text-charcoal text-base font-semibold mb-2">
+                      Additional Instructions (Optional)
+                    </Text>
+                    <TextInput
+                      value={customNote}
+                      onChangeText={setCustomNote}
+                      placeholder="e.g., Near the palm tree, left side"
+                      placeholderTextColor="#3E3D38"
+                      className="bg-white rounded-button p-4 text-charcoal border border-sand"
+                      multiline
+                      numberOfLines={3}
+                      blurOnSubmit={true}
+                      returnKeyType="done"
+                      onFocus={() => {
+                        setTimeout(() => {
+                          scrollViewRef.current?.scrollToEnd({ animated: true });
+                        }, 100);
+                      }}
+                    />
+                  </View>
+                )}
               </View>
-            ) : (
-              locations.map((location) => {
-                const Icon = getLocationIcon(location.type || 'custom');
-                const isSelected = selectedLocation?.id === location.id;
+            </ScrollView>
 
-                return (
-                  <TouchableOpacity
-                    key={location.id}
-                    onPress={() => setSelectedLocation(location)}
-                    className={`bg-white rounded-card p-4 mb-3 shadow-soft flex-row items-center ${
-                      isSelected ? 'border-2 border-turquoise' : 'border border-transparent'
-                    }`}
-                    activeOpacity={0.8}
-                  >
-                    <View
-                      className={`rounded-full p-3 mr-3 ${
-                        isSelected ? 'bg-turquoise' : 'bg-sand'
-                      }`}
-                    >
-                      <Icon size={22} color={isSelected ? '#FAF7F2' : '#3E3D38'} />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-charcoal font-semibold text-base">
-                        {location.name}
-                      </Text>
-                      {location.type && (
-                        <Text className="text-charcoal/60 text-sm capitalize">
-                          Area de {location.type}
-                        </Text>
-                      )}
-                    </View>
-                    {isSelected && (
-                      <View className="bg-turquoise rounded-full w-6 h-6 items-center justify-center">
-                        <Text className="text-white font-bold">✓</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })
-            )}
-
-            {selectedLocation && (
-              <View className="mt-4">
-                <Text className="text-charcoal text-base font-semibold mb-2">
-                  Additional Instructions (Optional)
+            <View className="bg-white px-6 py-4 border-t border-sand/50">
+              <TouchableOpacity
+                onPress={handleContinue}
+                disabled={!selectedLocation}
+                className={`rounded-button py-4 items-center active:scale-95 ${
+                  selectedLocation ? 'bg-turquoise' : 'bg-sand'
+                }`}
+                activeOpacity={0.9}
+              >
+                <Text className={`font-bold text-lg ${selectedLocation ? 'text-white' : 'text-charcoal/40'}`}>
+                  Continue to Payment
                 </Text>
-                <TextInput
-                  value={customNote}
-                  onChangeText={setCustomNote}
-                  placeholder="e.g., Near the palm tree, left side"
-                  placeholderTextColor="#3E3D38"
-                  className="bg-white rounded-button p-4 text-charcoal border border-sand"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-            )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </ScrollView>
-
-        <View className="bg-white px-6 py-4 border-t border-sand/50">
-          <TouchableOpacity
-            onPress={handleContinue}
-            disabled={!selectedLocation}
-            className={`rounded-button py-4 items-center active:scale-95 ${
-              selectedLocation ? 'bg-turquoise' : 'bg-sand'
-            }`}
-            activeOpacity={0.9}
-          >
-            <Text className={`font-bold text-lg ${selectedLocation ? 'text-white' : 'text-charcoal/40'}`}>
-              Continue to Payment
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

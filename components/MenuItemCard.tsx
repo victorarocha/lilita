@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Modal, TextInput, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Modal, TextInput, Alert, ScrollView, ActivityIndicator, Keyboard, TouchableWithoutFeedback, KeyboardAvoidingView, Platform } from 'react-native';
 import { Plus, X, Minus, Check } from 'lucide-react-native';
 import { MenuItem } from '@/types';
 import { useApp } from '@/context/AppContext';
@@ -124,120 +124,132 @@ export function MenuItemCard({ item, venueId, venueName }: MenuItemCardProps) {
         onRequestClose={() => setModalVisible(false)}
       >
         <View className="flex-1 bg-black/50 justify-end">
-          <View className="bg-cream rounded-t-3xl max-h-[85%]">
-            <View className="relative">
-              <Image source={{ uri: item.image }} className="w-full h-64" resizeMode="cover" />
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                className="absolute top-4 right-4 bg-white/90 rounded-full p-2 shadow-soft"
-                activeOpacity={0.8}
-              >
-                <X size={24} color="#3E3D38" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView className="max-h-[400px]">
-              <View className="p-6">
-                <Text className="text-charcoal font-bold text-2xl mb-2">{item.name}</Text>
-                <Text className="text-charcoal/70 text-base mb-4">{item.description}</Text>
-                
-                {item.dietary && item.dietary.length > 0 && (
-                  <View className="flex-row mb-4">
-                    {item.dietary.map((diet, index) => (
-                      <View key={index} className="bg-turquoise/10 rounded-full px-3 py-1.5 mr-2">
-                        <Text className="text-turquoise text-sm font-semibold">{diet}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Product Variations */}
-                {loadingVariations ? (
-                  <View className="py-4 items-center">
-                    <ActivityIndicator size="small" color="#00A896" />
-                  </View>
-                ) : variations.length > 0 && (
-                  <View className="mb-4">
-                    <Text className="text-charcoal/60 text-sm mb-2">Select Variation (Optional)</Text>
-                    <View className="flex-row flex-wrap">
-                      {variations.map((variation) => {
-                        const isSelected = selectedVariation?.id === variation.id;
-                        return (
-                          <TouchableOpacity
-                            key={variation.id}
-                            onPress={() => setSelectedVariation(isSelected ? null : variation)}
-                            className={`mr-2 mb-2 px-4 py-2.5 rounded-full flex-row items-center ${
-                              isSelected ? 'bg-turquoise' : 'bg-sand'
-                            }`}
-                            activeOpacity={0.8}
-                          >
-                            {isSelected && (
-                              <Check size={14} color="#FAF7F2" style={{ marginRight: 6 }} />
-                            )}
-                            <Text
-                              className={`font-semibold ${
-                                isSelected ? 'text-white' : 'text-charcoal'
-                              }`}
-                            >
-                              {variation.name}
-                            </Text>
-                            <Text
-                              className={`ml-2 ${
-                                isSelected ? 'text-white/80' : 'text-charcoal/60'
-                              }`}
-                            >
-                              ${variation.price.toFixed(2)}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-
-                <Text className="text-charcoal/60 text-sm mb-2">Special Instructions (Optional)</Text>
-                <TextInput
-                  value={customizations}
-                  onChangeText={setCustomizations}
-                  placeholder="e.g., No ice, extra lime"
-                  placeholderTextColor="#3E3D38"
-                  className="bg-white rounded-button p-4 mb-4 text-charcoal border border-sand"
-                  multiline
-                />
-
-                <View className="flex-row items-center justify-between mb-6">
-                  <Text className="text-charcoal text-base font-semibold">Quantity</Text>
-                  <View className="flex-row items-center">
-                    <TouchableOpacity
-                      onPress={() => setQuantity(Math.max(1, quantity - 1))}
-                      className="bg-sand rounded-full p-2"
-                      activeOpacity={0.8}
-                    >
-                      <Minus size={20} color="#3E3D38" />
-                    </TouchableOpacity>
-                    <Text className="text-charcoal font-bold text-xl mx-6">{quantity}</Text>
-                    <TouchableOpacity
-                      onPress={() => setQuantity(quantity + 1)}
-                      className="bg-coral rounded-full p-2"
-                      activeOpacity={0.8}
-                    >
-                      <Plus size={20} color="#FAF7F2" />
-                    </TouchableOpacity>
-                  </View>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={{ maxHeight: '92%' }}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View className="bg-cream rounded-t-3xl" style={{ maxHeight: '100%' }}>
+                <View className="relative">
+                  <Image source={{ uri: item.image }} className="w-full h-56" resizeMode="cover" style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24 }} />
+                  <TouchableOpacity
+                    onPress={() => setModalVisible(false)}
+                    className="absolute top-4 right-4 bg-white/90 rounded-full p-2 shadow-soft"
+                    activeOpacity={0.8}
+                  >
+                    <X size={24} color="#3E3D38" />
+                  </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                  onPress={handleAddToCart}
-                  className="bg-turquoise rounded-button py-4 items-center active:scale-95"
-                  activeOpacity={0.9}
+                <ScrollView 
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
                 >
-                  <Text className="text-white font-bold text-lg">
-                    Add to Cart • ${calculateTotalPrice().toFixed(2)}
-                  </Text>
-                </TouchableOpacity>
+                  <View className="p-6 pb-8">
+                    <Text className="text-charcoal font-bold text-2xl mb-2">{item.name}</Text>
+                    <Text className="text-charcoal/70 text-base mb-4">{item.description}</Text>
+                    
+                    {item.dietary && item.dietary.length > 0 && (
+                      <View className="flex-row mb-4">
+                        {item.dietary.map((diet, index) => (
+                          <View key={index} className="bg-turquoise/10 rounded-full px-3 py-1.5 mr-2">
+                            <Text className="text-turquoise text-sm font-semibold">{diet}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* Product Variations */}
+                    {loadingVariations ? (
+                      <View className="py-4 items-center">
+                        <ActivityIndicator size="small" color="#00A896" />
+                      </View>
+                    ) : variations.length > 0 && (
+                      <View className="mb-4">
+                        <Text className="text-charcoal/60 text-sm mb-2">Select Variation (Optional)</Text>
+                        <View className="flex-row flex-wrap">
+                          {variations.map((variation) => {
+                            const isSelected = selectedVariation?.id === variation.id;
+                            return (
+                              <TouchableOpacity
+                                key={variation.id}
+                                onPress={() => setSelectedVariation(isSelected ? null : variation)}
+                                className={`mr-2 mb-2 px-4 py-2.5 rounded-full flex-row items-center ${
+                                  isSelected ? 'bg-turquoise' : 'bg-sand'
+                                }`}
+                                activeOpacity={0.8}
+                              >
+                                {isSelected && (
+                                  <Check size={14} color="#FAF7F2" style={{ marginRight: 6 }} />
+                                )}
+                                <Text
+                                  className={`font-semibold ${
+                                    isSelected ? 'text-white' : 'text-charcoal'
+                                  }`}
+                                >
+                                  {variation.name}
+                                </Text>
+                                <Text
+                                  className={`ml-2 ${
+                                    isSelected ? 'text-white/80' : 'text-charcoal/60'
+                                  }`}
+                                >
+                                  ${variation.price.toFixed(2)}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    )}
+
+                    <Text className="text-charcoal/60 text-sm mb-2">Special Instructions (Optional)</Text>
+                    <TextInput
+                      value={customizations}
+                      onChangeText={setCustomizations}
+                      placeholder="e.g., No ice, extra lime"
+                      placeholderTextColor="#3E3D38"
+                      className="bg-white rounded-button p-4 mb-4 text-charcoal border border-sand"
+                      multiline
+                      blurOnSubmit={true}
+                      returnKeyType="done"
+                    />
+
+                    <View className="flex-row items-center justify-between mb-6">
+                      <Text className="text-charcoal text-base font-semibold">Quantity</Text>
+                      <View className="flex-row items-center">
+                        <TouchableOpacity
+                          onPress={() => setQuantity(Math.max(1, quantity - 1))}
+                          className="bg-sand rounded-full p-2"
+                          activeOpacity={0.8}
+                        >
+                          <Minus size={20} color="#3E3D38" />
+                        </TouchableOpacity>
+                        <Text className="text-charcoal font-bold text-xl mx-6">{quantity}</Text>
+                        <TouchableOpacity
+                          onPress={() => setQuantity(quantity + 1)}
+                          className="bg-coral rounded-full p-2"
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={20} color="#FAF7F2" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={handleAddToCart}
+                      className="bg-turquoise rounded-button py-4 items-center active:scale-95"
+                      activeOpacity={0.9}
+                    >
+                      <Text className="text-white font-bold text-lg">
+                        Add to Cart • ${calculateTotalPrice().toFixed(2)}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
               </View>
-            </ScrollView>
-          </View>
+            </TouchableWithoutFeedback>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </>

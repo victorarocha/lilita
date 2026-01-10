@@ -308,3 +308,25 @@ export async function updateOrderStatus(
   if (error) throw error;
   return data as Order;
 }
+
+// Update order with user feedback
+export async function updateOrderFeedback(
+  orderId: string,
+  rating: number,
+  feedback?: string,
+  tip?: number
+) {
+  const { data, error } = await supabase
+    .from('order')
+    .update({
+      user_rating: rating,
+      user_rating_feedback: feedback || null,
+      tip: tip || null,
+    })
+    .eq('id', orderId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data as Order;
+}
