@@ -126,7 +126,7 @@ function generateOrderCode(): string {
 // Create a new order
 export async function createOrder(orderData: {
   ordering_location_id: number;
-  customer_id: number;
+  customer_id: string; // UUID
   total_price: number;
   instructions?: string | null;
   status?: 'received' | 'preparing' | 'on-delivery' | 'delivered';
@@ -206,22 +206,32 @@ export async function createOrderProducts(
 }
 
 // Get or create a customer by email
-export async function getOrCreateCustomer(email: string, name: string): Promise<Customer> {
+export async function getOrCreateCustomer(email: string, fullName: string): Promise<Customer> {
   // First try to find existing customer
   const { data: existingCustomer, error: findError } = await supabase
     .from('customers')
     .select('*')
     .eq('email', email)
-    .single();
+    .maybeSingle();
 
   if (existingCustomer && !findError) {
     return existingCustomer as Customer;
   }
 
+  // Parse name into first/last
+  const nameParts = fullName.trim().split(' ');
+  const firstName = nameParts[0] || null;
+  const lastName = nameParts.slice(1).join(' ') || null;
+
   // Create new customer if not found
   const { data: newCustomer, error: createError } = await supabase
     .from('customers')
-    .insert({ email, name })
+    .insert({ 
+      email, 
+      full_name: fullName,
+      first_name: firstName,
+      last_name: lastName
+    })
     .select()
     .single();
 

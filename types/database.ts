@@ -80,10 +80,14 @@ export interface OrderProduct {
 }
 
 export interface Customer {
-  id: number;
+  id: string; // UUID
   created_at?: string;
   email: string;
-  name: string;
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  clerk_user_id?: string | null;
+  updated_at?: string;
 }
 
 export interface ProductVariation {

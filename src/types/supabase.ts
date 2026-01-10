@@ -35,30 +35,6 @@ export type Database = {
         }
         Relationships: []
       }
-      customer: {
-        Row: {
-          created_at: string
-          email: string
-          id: number
-          name: string
-          picture_url: string | null
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          id?: number
-          name: string
-          picture_url?: string | null
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          id?: number
-          name?: string
-          picture_url?: string | null
-        }
-        Relationships: []
-      }
       customers: {
         Row: {
           clerk_user_id: string | null
@@ -160,7 +136,7 @@ export type Database = {
       order: {
         Row: {
           created_at: string
-          customer_id: number
+          customer_id: string | null
           hospitality_center_id: number | null
           id: number
           instructions: string | null
@@ -176,7 +152,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          customer_id: number
+          customer_id?: string | null
           hospitality_center_id?: number | null
           id?: number
           instructions?: string | null
@@ -192,7 +168,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          customer_id?: number
+          customer_id?: string | null
           hospitality_center_id?: number | null
           id?: number
           instructions?: string | null
@@ -211,7 +187,7 @@ export type Database = {
             foreignKeyName: "order_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "customer"
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {

@@ -4,13 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, CreditCard, Smartphone, MapPin } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
+import { useClerk } from '@/context/ClerkContext';
 import { Order, OrderStatus } from '@/types';
-import { createOrder, createOrderProducts, getOrCreateCustomer } from '@/lib/database';
+import { createOrder, createOrderProducts } from '@/lib/database';
 
 type PaymentMethod = 'card' | 'apple' | 'google';
 
 export default function CheckoutScreen() {
   const { cart, deliveryLocation, setCurrentOrder, addToOrderHistory, clearCart, hospitalityCenterId, cartVenueId } = useApp();
+  const { customer, isSignedIn, syncCustomer, user } = useClerk();
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('card');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -24,6 +26,15 @@ export default function CheckoutScreen() {
       return;
     }
 
+    // Check if user is signed in
+    if (!isSignedIn) {
+      Alert.alert('Sign In Required', 'Please sign in to place an order.', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Sign In', onPress: () => router.push('/login') }
+      ]);
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -33,15 +44,27 @@ export default function CheckoutScreen() {
         throw new Error('Invalid delivery location');
       }
 
-      // Get or create customer (using a placeholder email for now)
-      const customer = await getOrCreateCustomer('guest@resort.app', 'Guest User');
+      // Use the authenticated customer from Clerk context
+      let resolvedCustomer = customer;
+      
+      // If customer is not synced yet, sync now
+      if (!resolvedCustomer && user) {
+        console.log('[Checkout] Customer not synced, syncing now...');
+        resolvedCustomer = await syncCustomer();
+      }
+      
+      if (!resolvedCustomer?.id) {
+        throw new Error('Unable to resolve customer. Please try signing out and signing in again.');
+      }
+      
+      console.log('[Checkout] Using customer ID:', resolvedCustomer.id, 'for clerk user:', user?.id);
 
       // Create the order in the database
       const orderInstructions = deliveryLocation.customNote?.trim() || null;
       
       const dbOrder = await createOrder({
         ordering_location_id: locationId,
-        customer_id: customer.id,
+        customer_id: resolvedCustomer.id,
         total_price: total,
         instructions: orderInstructions,
         status: 'received',

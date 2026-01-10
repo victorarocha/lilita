@@ -7,20 +7,21 @@ import { useEffect } from "react";
 import "react-native-reanimated";
 import "../global.css";
 import { AppProvider } from "@/context/AppContext";
-import {
-  ClerkProvider as ClerkProviderBase,
-  ClerkLoaded,
-} from "@clerk/clerk-expo";
+import { ClerkProvider as ClerkProviderBase } from "@clerk/clerk-expo";
 import { ClerkProvider } from "@/context/ClerkContext";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// Token cache for Clerk
+// Token cache for Clerk - platform-specific implementation
 const tokenCache = {
   async getToken(key: string) {
     try {
+      if (Platform.OS === 'web') {
+        return localStorage.getItem(key);
+      }
       return await SecureStore.getItemAsync(key);
     } catch (err) {
       return null;
@@ -28,7 +29,11 @@ const tokenCache = {
   },
   async saveToken(key: string, value: string) {
     try {
-      await SecureStore.setItemAsync(key, value);
+      if (Platform.OS === 'web') {
+        localStorage.setItem(key, value);
+      } else {
+        await SecureStore.setItemAsync(key, value);
+      }
     } catch (err) {
       // Ignore
     }
@@ -59,17 +64,15 @@ export default function RootLayout() {
     <ClerkProviderBase
       publishableKey={publishableKey}
       tokenCache={tokenCache}
-      className="left-[-80px] top-[0px]"
     >
-      <ClerkLoaded>
-        <ClerkProvider>
-          <AppProvider>
-            <ThemeProvider value={DefaultTheme}>
-              <Stack
-                screenOptions={({ route }) => ({
-                  headerShown: !route.name.startsWith("tempobook"),
-                  contentStyle: { backgroundColor: "#FAF7F2" },
-                  animation: "slide_from_right",
+      <ClerkProvider>
+        <AppProvider>
+          <ThemeProvider value={DefaultTheme}>
+            <Stack
+              screenOptions={({ route }) => ({
+                headerShown: !route.name.startsWith("tempobook"),
+                contentStyle: { backgroundColor: "#FAF7F2" },
+                animation: "slide_from_right",
                 })}
               >
                 <Stack.Screen
@@ -120,12 +123,11 @@ export default function RootLayout() {
                   name="profile"
                   options={{ headerShown: false, animation: "none" }}
                 />
-              </Stack>
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          </AppProvider>
-        </ClerkProvider>
-      </ClerkLoaded>
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </AppProvider>
+      </ClerkProvider>
     </ClerkProviderBase>
   );
 }
