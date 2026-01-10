@@ -9,8 +9,20 @@ interface Customer {
   full_name: string | null;
   first_name: string | null;
   last_name: string | null;
+  avatar_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface UpdateProfileImageError {
+  code: 'NOT_AUTHENTICATED' | 'INVALID_IMAGE' | 'UPLOAD_FAILED' | 'CLERK_UPDATE_FAILED' | 'DB_SYNC_FAILED' | 'CANCELLED';
+  message: string;
+}
+
+interface UpdateProfileImageResult {
+  customer?: Customer;
+  avatarUrl?: string;
+  error?: UpdateProfileImageError;
 }
 
 interface ClerkContextType {
@@ -22,6 +34,7 @@ interface ClerkContextType {
   signOut: () => Promise<void>;
   fetchUserDetails: (userId: string) => Promise<any>;
   syncCustomer: () => Promise<Customer | null>;
+  updateProfileImage: (file: { uri: string; type?: string; name?: string }) => Promise<UpdateProfileImageResult>;
 }
 
 const ClerkContext = createContext<ClerkContextType | undefined>(undefined);
@@ -77,6 +90,21 @@ export function ClerkProvider({ children }: { children: React.ReactNode }) {
 
       console.log('[ClerkContext] Syncing customer with email:', email);
       
+      // First try the SSO lookup edge function (handles Pica integration and server-side sync)
+      const { data: ssoData, error: ssoError } = await supabase.functions.invoke('supabase-functions-clerk-sso-lookup', {
+        body: {
+          user_id: user.id,
+        }
+      });
+
+      if (!ssoError && ssoData?.customer) {
+        console.log('[ClerkContext] Customer synced via SSO lookup:', ssoData.customer.id);
+        setCustomer(ssoData.customer);
+        return ssoData.customer;
+      }
+
+      // Fallback to direct sync if SSO lookup fails
+      console.log('[ClerkContext] Falling back to direct sync...');
       const { data, error } = await supabase.functions.invoke('supabase-functions-sync-clerk-customer', {
         body: {
           clerk_user_id: user.id,
@@ -106,6 +134,80 @@ export function ClerkProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Update profile image
+  // NOTE: use userId from useAuth() which is the Clerk user ID (user.id)
+  // This matches the clerk_user_id field in the customers table
+  const updateProfileImage = async (file: { uri: string; type?: string; name?: string }): Promise<UpdateProfileImageResult> => {
+    if (!user || !userId) {
+      console.log('[ClerkContext] No user available for avatar update');
+      return { error: { code: 'NOT_AUTHENTICATED', message: 'Please sign in to update your profile picture' } };
+    }
+
+    // userId is the Clerk user ID (e.g., "user_xxx") from useAuth()
+    const clerkUserId = userId;
+
+    try {
+      console.log('[ClerkContext] Updating profile image for clerk_user_id:', clerkUserId);
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+      const fileType = file.type || 'image/jpeg';
+      if (!allowedTypes.includes(fileType)) {
+        return { error: { code: 'INVALID_IMAGE', message: `File type ${fileType} is not supported. Please use JPEG, PNG, or WebP.` } };
+      }
+
+      // Create FormData for upload
+      const formData = new FormData();
+      formData.append('file', {
+        uri: file.uri,
+        type: fileType,
+        name: file.name || 'avatar.jpg',
+      } as any);
+      // Use clerkUserId which is the Clerk user ID from useAuth()
+      formData.append('clerk_user_id', clerkUserId);
+
+      // Get the Supabase URL from env
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      if (!supabaseUrl) {
+        return { error: { code: 'UPLOAD_FAILED', message: 'Missing Supabase configuration' } };
+      }
+
+      // Call our Edge Function
+      const response = await fetch(`${supabaseUrl}/functions/v1/supabase-functions-update-avatar`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error('[ClerkContext] Avatar upload failed:', result);
+        return { 
+          error: { 
+            code: result.code || 'UPLOAD_FAILED', 
+            message: result.message || result.error || 'Failed to upload profile picture' 
+          } 
+        };
+      }
+
+      console.log('[ClerkContext] Avatar updated successfully:', result.avatarUrl);
+
+      // Update local customer state
+      if (result.customer) {
+        setCustomer(result.customer);
+      } else if (result.avatarUrl && customer) {
+        // Partial success - update avatar_url locally
+        setCustomer({ ...customer, avatar_url: result.avatarUrl });
+      }
+
+      return { customer: result.customer, avatarUrl: result.avatarUrl };
+
+    } catch (error: any) {
+      console.error('[ClerkContext] Error updating profile image:', error);
+      return { error: { code: 'UPLOAD_FAILED', message: error.message || 'Failed to upload profile picture' } };
+    }
+  };
+
   useEffect(() => {
     if (isSignedIn && userId && user) {
       // Fetch extended user details from Clerk via Pica
@@ -130,6 +232,7 @@ export function ClerkProvider({ children }: { children: React.ReactNode }) {
         signOut,
         fetchUserDetails,
         syncCustomer,
+        updateProfileImage,
       }}
     >
       {children}

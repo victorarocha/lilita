@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,19 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSignIn, useAuth } from '@clerk/clerk-expo';
-import { useRouter } from 'expo-router';
+import { useSignIn, useAuth, useSSO, useClerk } from '@clerk/clerk-expo';
+import { useRouter, useSegments, useRootNavigation } from 'expo-router';
 import { LogIn, ShieldCheck, ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import * as Linking from 'expo-linking';
+
+// Note: WebBrowser.maybeCompleteAuthSession() is called in _layout.tsx at app root
+
+// Detect if we're running in a browser environment (more reliable than Platform.OS on web)
+const isWebBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 // Cross-platform alert helper
 const showAlert = (title: string, message: string) => {
@@ -28,27 +35,217 @@ const showAlert = (title: string, message: string) => {
 export default function LoginScreen() {
   const { signIn, setActive, isLoaded } = useSignIn();
   const { isSignedIn, isLoaded: authLoaded } = useAuth();
+  const { signOut } = useClerk();
   const router = useRouter();
+  // useSegments is a reliable way to check if navigation is mounted
+  const segments = useSegments();
+  // Get the root navigation object to check if it's ready
+  const rootNavigation = useRootNavigation();
   
   const [emailAddress, setEmailAddress] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ssoLoading, setSsoLoading] = useState<string | null>(null);
   const hasNavigated = useRef(false);
+  const navigationAttempts = useRef(0);
+  const [isMounted, setIsMounted] = useState(false);
+  const [navigationContextReady, setNavigationContextReady] = useState(false);
   
   // 2FA state
   const [needsSecondFactor, setNeedsSecondFactor] = useState(false);
   const [totpCode, setTotpCode] = useState('');
   const [verifying2FA, setVerifying2FA] = useState(false);
 
+  // SSO hooks
+  const { startSSOFlow: startGoogleSSO } = useSSO();
+  const { startSSOFlow: startFacebookSSO } = useSSO();
+  const { startSSOFlow: startAppleSSO } = useSSO();
+
+  // Track when component is mounted
+  useEffect(() => {
+    // Delay slightly to ensure navigation context is ready
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Check if root navigation is ready
+  useEffect(() => {
+    if (rootNavigation?.isReady()) {
+      console.log('[LoginScreen] Root navigation is ready');
+      setNavigationContextReady(true);
+    } else {
+      // Listen for when navigation becomes ready
+      const unsubscribe = rootNavigation?.addListener?.('state', () => {
+        if (rootNavigation?.isReady()) {
+          console.log('[LoginScreen] Root navigation became ready');
+          setNavigationContextReady(true);
+        }
+      });
+      return () => unsubscribe?.();
+    }
+  }, [rootNavigation]);
+
+  // Check if navigation is ready - segments array exists when navigation is mounted
+  const navigationReady = isMounted && navigationContextReady;
+
+  // Safe navigation function with retry logic
+  const safeNavigate = useCallback(() => {
+    if (hasNavigated.current) return;
+    
+    navigationAttempts.current += 1;
+    console.log('[LoginScreen] Safe navigate attempt:', navigationAttempts.current, {
+      isMounted,
+      navigationContextReady,
+      rootNavigationReady: rootNavigation?.isReady?.(),
+      isWebBrowser,
+      platformOS: Platform.OS
+    });
+    
+    // On web/browser, use window.location for reliable navigation after SSO
+    // This completely bypasses expo-router's navigation and avoids any context issues
+    // Use isWebBrowser check which is more reliable than Platform.OS in some environments
+    if (isWebBrowser || Platform.OS === 'web') {
+      hasNavigated.current = true;
+      console.log('[LoginScreen] Using window.location for web navigation');
+      // Use setTimeout to ensure any pending state updates complete first
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
+      return;
+    }
+    
+    // For native, check if navigation is truly ready
+    const isNavReady = isMounted && rootNavigation?.isReady?.();
+    
+    if (!isNavReady) {
+      // Navigation not ready yet, retry after a delay
+      if (navigationAttempts.current < 15) {
+        console.log('[LoginScreen] Navigation not ready, retrying in 300ms...');
+        setTimeout(safeNavigate, 300);
+      } else {
+        console.error('[LoginScreen] Navigation failed after max attempts');
+      }
+      return;
+    }
+    
+    try {
+      hasNavigated.current = true;
+      router.replace('/');
+      console.log('[LoginScreen] Navigation successful');
+    } catch (navError) {
+      console.error('[LoginScreen] Navigation error:', navError);
+      hasNavigated.current = false;
+      // Retry with longer delay
+      if (navigationAttempts.current < 15) {
+        setTimeout(safeNavigate, 400);
+      }
+    }
+  }, [isMounted, navigationContextReady, rootNavigation, router]);
+
   // Redirect to home when user becomes signed in
   useEffect(() => {
-    console.log('[LoginScreen] Auth state:', { authLoaded, isSignedIn, hasNavigated: hasNavigated.current });
+    console.log('[LoginScreen] Auth state:', { 
+      authLoaded, 
+      isSignedIn, 
+      hasNavigated: hasNavigated.current,
+      isMounted,
+      navigationContextReady
+    });
+    
     if (authLoaded && isSignedIn && !hasNavigated.current) {
-      hasNavigated.current = true;
       setLoading(false);
-      router.replace('/');
+      setSsoLoading(null);
+      // Use safe navigation with retry logic
+      navigationAttempts.current = 0;
+      // Defer navigation to ensure everything is mounted
+      // Use longer delay for web after SSO redirect to allow navigation context to fully initialize
+      // Apple SSO can take longer to complete session initialization
+      const delay = (isWebBrowser || Platform.OS === 'web') ? 750 : 300;
+      console.log('[LoginScreen] Scheduling navigation with delay:', delay, 'ms');
+      setTimeout(safeNavigate, delay);
     }
-  }, [authLoaded, isSignedIn]);
+  }, [authLoaded, isSignedIn, safeNavigate, isMounted, navigationContextReady]);
+
+  // Handle SSO sign-in
+  const handleSSOSignIn = useCallback(async (provider: 'oauth_google' | 'oauth_facebook' | 'oauth_apple') => {
+    if (!isLoaded) {
+      showAlert('Please Wait', 'Authentication is still loading.');
+      return;
+    }
+
+    setSsoLoading(provider);
+    console.log(`[LoginScreen] Starting ${provider} SSO...`);
+
+    try {
+      let startSSO;
+      if (provider === 'oauth_google') {
+        startSSO = startGoogleSSO;
+      } else if (provider === 'oauth_facebook') {
+        startSSO = startFacebookSSO;
+      } else {
+        startSSO = startAppleSSO;
+      }
+
+      // Get redirect URL for Expo
+      // IMPORTANT: Redirect back to /login route so the auth state check can handle navigation
+      // This avoids "couldn't find navigation context" errors on web
+      // Use isWebBrowser check which is more reliable than Platform.OS in some environments
+      const redirectUrl = (isWebBrowser || Platform.OS === 'web')
+        ? `${window.location.origin}/login`
+        : Linking.createURL('/login');
+      console.log('[LoginScreen] SSO redirect URL:', redirectUrl, 'isWebBrowser:', isWebBrowser);
+
+      const { createdSessionId, setActive: ssoSetActive, signIn: ssoSignIn, signUp: ssoSignUp } = await startSSO({
+        strategy: provider,
+        redirectUrl,
+      });
+
+      console.log('[LoginScreen] SSO flow result:', { 
+        createdSessionId, 
+        hasSetActive: !!ssoSetActive,
+        hasSignIn: !!ssoSignIn,
+        hasSignUp: !!ssoSignUp
+      });
+
+      // If sign-in was successful, set the session
+      if (createdSessionId && ssoSetActive) {
+        console.log('[LoginScreen] SSO session created, activating...');
+        try {
+          await ssoSetActive({ session: createdSessionId });
+          console.log('[LoginScreen] SSO session activated successfully');
+          // DO NOT call router.replace here - let the useEffect handle navigation
+          // when auth state changes to avoid "couldn't find navigation context" error
+          // The useEffect watching isSignedIn will handle navigation safely
+        } catch (activationError: any) {
+          console.error('[LoginScreen] SSO session activation error:', activationError);
+          showAlert('Activation Error', 'Failed to activate session. Please try again.');
+          setSsoLoading(null);
+        }
+      } else {
+        // If we need to complete sign-in or sign-up
+        if (ssoSignIn || ssoSignUp) {
+          console.log('[LoginScreen] SSO requires additional steps');
+          // The SSO flow is in progress, wait for it to complete
+          // Navigation will be handled by the useEffect when auth state changes
+        } else {
+          console.log('[LoginScreen] SSO flow incomplete, no session created');
+          setSsoLoading(null);
+        }
+      }
+    } catch (err: any) {
+      console.error(`[LoginScreen] ${provider} SSO error:`, err);
+      let errorMessage = 'SSO sign-in failed. Please try again.';
+      if (err?.errors && err.errors.length > 0) {
+        errorMessage = err.errors[0].longMessage || err.errors[0].message || errorMessage;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      showAlert('SSO Error', errorMessage);
+      setSsoLoading(null);
+    }
+  }, [isLoaded, startGoogleSSO, startFacebookSSO, startAppleSSO]);
 
   const onSignInPress = async () => {
     console.log('[LoginScreen] onSignInPress called, isLoaded:', isLoaded, 'signIn:', !!signIn);
@@ -392,10 +589,10 @@ export default function LoginScreen() {
               console.log('[LoginScreen] Sign In button pressed');
               onSignInPress();
             }}
-            disabled={loading || !emailAddress || !password}
+            disabled={loading || !emailAddress || !password || ssoLoading !== null}
             activeOpacity={0.8}
             className={`rounded-xl py-4 items-center mb-4 ${
-              loading || !emailAddress || !password ? 'bg-charcoal/30' : 'bg-coral'
+              loading || !emailAddress || !password || ssoLoading !== null ? 'bg-charcoal/30' : 'bg-coral'
             }`}
           >
             {loading ? (
@@ -406,6 +603,84 @@ export default function LoginScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {/* Divider */}
+          <View className="flex-row items-center mb-4">
+            <View className="flex-1 h-[1px] bg-charcoal/10" />
+            <Text className="text-charcoal/40 text-sm mx-4">or continue with</Text>
+            <View className="flex-1 h-[1px] bg-charcoal/10" />
+          </View>
+
+          {/* SSO Buttons */}
+          <View className="space-y-3 mb-6">
+            {/* Google */}
+            <TouchableOpacity
+              onPress={() => handleSSOSignIn('oauth_google')}
+              disabled={loading || ssoLoading !== null}
+              activeOpacity={0.8}
+              className={`flex-row items-center justify-center rounded-xl py-4 border border-charcoal/10 bg-white mb-3 ${
+                ssoLoading !== null ? 'opacity-50' : ''
+              }`}
+            >
+              {ssoLoading === 'oauth_google' ? (
+                <ActivityIndicator color="#4285F4" />
+              ) : (
+                <>
+                  <Image 
+                    source={{ uri: 'https://www.google.com/favicon.ico' }} 
+                    className="w-5 h-5 mr-3"
+                  />
+                  <Text className="text-charcoal text-base font-medium">
+                    Continue with Google
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Facebook */}
+            <TouchableOpacity
+              onPress={() => handleSSOSignIn('oauth_facebook')}
+              disabled={loading || ssoLoading !== null}
+              activeOpacity={0.8}
+              className={`flex-row items-center justify-center rounded-xl py-4 bg-[#1877F2] mb-3 ${
+                ssoLoading !== null ? 'opacity-50' : ''
+              }`}
+            >
+              {ssoLoading === 'oauth_facebook' ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Text className="text-white text-lg font-bold mr-2">f</Text>
+                  <Text className="text-white text-base font-medium">
+                    Continue with Facebook
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Apple - Only show on iOS */}
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity
+                onPress={() => handleSSOSignIn('oauth_apple')}
+                disabled={loading || ssoLoading !== null}
+                activeOpacity={0.8}
+                className={`flex-row items-center justify-center rounded-xl py-4 bg-black ${
+                  ssoLoading !== null ? 'opacity-50' : ''
+                }`}
+              >
+                {ssoLoading === 'oauth_apple' ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Text className="text-white text-lg mr-2"></Text>
+                    <Text className="text-white text-base font-medium">
+                      Continue with Apple
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
 
           {/* Sign Up Link */}
           <View className="flex-row items-center justify-center">

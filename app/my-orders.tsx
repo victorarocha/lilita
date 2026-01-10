@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { useRootNavigation } from "expo-router";
 import {
   Clock,
   CheckCircle,
@@ -21,6 +22,9 @@ import { Order, OrderStatus } from "@/types";
 import { getOrdersByCustomerId, getOrdersByClerkUserId } from "@/lib/database";
 import { supabase } from "@/lib/supabase";
 import { useClerk } from "@/context/ClerkContext";
+
+// Detect if we're running in a browser environment
+const isWebBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 const getStatusConfig = (status: OrderStatus) => {
   switch (status) {
@@ -40,9 +44,10 @@ const getStatusConfig = (status: OrderStatus) => {
 interface OrderCardProps {
   order: Order;
   isCurrent?: boolean;
+  onNavigate?: () => void;
 }
 
-function OrderCard({ order, isCurrent }: OrderCardProps) {
+function OrderCard({ order, isCurrent, onNavigate }: OrderCardProps) {
   const statusConfig = getStatusConfig(order.status);
   const StatusIcon = statusConfig.icon;
   const formattedDate = new Date(order.createdAt).toLocaleDateString("en-US", {
@@ -54,7 +59,7 @@ function OrderCard({ order, isCurrent }: OrderCardProps) {
 
   return (
     <TouchableOpacity
-      onPress={() => isCurrent && router.push("/order-tracker")}
+      onPress={() => isCurrent && onNavigate?.()}
       className={`bg-white rounded-card p-4 mb-4 shadow-soft ${isCurrent ? "border-2 border-turquoise" : ""}`}
       activeOpacity={isCurrent ? 0.8 : 1}
       disabled={!isCurrent}
@@ -114,8 +119,70 @@ function OrderCard({ order, isCurrent }: OrderCardProps) {
 export default function MyOrdersScreen() {
   const { currentOrder, orderHistory } = useApp();
   const { isSignedIn, isLoaded, user, customer } = useClerk();
+  const rootNavigation = useRootNavigation();
   const [dbOrders, setDbOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [navigationReady, setNavigationReady] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Track when component is mounted - delay to ensure navigation context is ready
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsMounted(true);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
+  
+  // Track navigation readiness
+  useEffect(() => {
+    if (rootNavigation?.isReady()) {
+      setNavigationReady(true);
+    } else {
+      // Listen for when navigation becomes ready
+      const unsubscribe = rootNavigation?.addListener?.('state', () => {
+        if (rootNavigation?.isReady()) {
+          setNavigationReady(true);
+        }
+      });
+      // Also check again after a delay
+      const timer = setTimeout(() => {
+        setNavigationReady(rootNavigation?.isReady?.() || false);
+      }, 200);
+      return () => {
+        clearTimeout(timer);
+        unsubscribe?.();
+      };
+    }
+  }, [rootNavigation]);
+  
+  // Safe navigation function that handles potential navigation context issues
+  const safeNavigate = useCallback((path: string) => {
+    // On web/browser, use window.location for reliable navigation
+    // This bypasses expo-router completely and avoids navigation context issues
+    if (isWebBrowser || Platform.OS === 'web') {
+      console.log('[MyOrdersScreen] Using window.location for navigation:', path);
+      window.location.href = path;
+      return;
+    }
+    
+    // For native, check if navigation is ready
+    if (!navigationReady || !isMounted) {
+      console.error('[MyOrdersScreen] Navigation not ready, isMounted:', isMounted, 'navigationReady:', navigationReady);
+      return;
+    }
+    
+    try {
+      // Use require to avoid the navigation context error during initial render
+      const { router } = require('expo-router');
+      router.push(path as any);
+    } catch (err) {
+      console.error('[MyOrdersScreen] Navigation error:', err);
+      // Fallback to window.location on web
+      if (isWebBrowser || Platform.OS === 'web') {
+        window.location.href = path;
+      }
+    }
+  }, [navigationReady, isMounted]);
 
   // Load orders when customer is available
   useEffect(() => {
@@ -240,7 +307,7 @@ export default function MyOrdersScreen() {
                         key={order.id}
                         className="bg-white rounded-card p-4 mb-4 shadow-soft border-2 border-turquoise"
                         onPress={() =>
-                          router.push(`/order-tracker?orderId=${order.id}`)
+                          safeNavigate(`/order-tracker?orderId=${order.id}`)
                         }
                       >
                         <View className="flex-row items-center justify-between mb-3">
@@ -329,7 +396,7 @@ export default function MyOrdersScreen() {
                         key={order.id}
                         className="bg-white rounded-card p-4 mb-4 shadow-soft"
                         onPress={() =>
-                          router.push(`/order-tracker?orderId=${order.id}`)
+                          safeNavigate(`/order-tracker?orderId=${order.id}`)
                         }
                       >
                         <View className="flex-row items-center justify-between mb-3">
