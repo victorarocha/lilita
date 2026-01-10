@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { Home, ClipboardList, ShoppingBag } from 'lucide-react-native';
+import { Home, ClipboardList, ShoppingBag, User } from 'lucide-react-native';
 import { usePathname, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/AppContext';
@@ -15,6 +15,7 @@ export function BottomTabBar() {
   const tabs = [
     { id: 'home', label: 'Home', icon: Home, route: '/' },
     { id: 'orders', label: 'My Orders', icon: ClipboardList, route: '/my-orders' },
+    { id: 'profile', label: 'Profile', icon: User, route: '/profile' },
   ];
 
   const isTabActive = (route: string) => {

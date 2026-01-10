@@ -50,6 +50,7 @@ export default function RootLayout() {
           <Stack.Screen name="order-tracker" options={{ headerShown: false }} />
           <Stack.Screen name="rating" options={{ headerShown: false }} />
           <Stack.Screen name="my-orders" options={{ headerShown: false }} />
+          <Stack.Screen name="profile" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

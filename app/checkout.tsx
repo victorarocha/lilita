@@ -10,7 +10,7 @@ import { createOrder, createOrderProducts, getOrCreateCustomer } from '@/lib/dat
 type PaymentMethod = 'card' | 'apple' | 'google';
 
 export default function CheckoutScreen() {
-  const { cart, deliveryLocation, setCurrentOrder, addToOrderHistory, clearCart } = useApp();
+  const { cart, deliveryLocation, setCurrentOrder, addToOrderHistory, clearCart, hospitalityCenterId, cartVenueId } = useApp();
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('card');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -45,6 +45,8 @@ export default function CheckoutScreen() {
         total_price: total,
         instructions: orderInstructions,
         status: 'received',
+        hospitality_center_id: hospitalityCenterId || undefined,
+        merchant_id: cartVenueId ? Number(cartVenueId) : undefined,
       });
       
       if (!dbOrder || !dbOrder.order_code) {

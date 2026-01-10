@@ -1,11 +1,15 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Clock, CheckCircle, Truck, MapPin, ChevronRight } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
 import { BottomTabBar } from '@/components/BottomTabBar';
 import { Order, OrderStatus } from '@/types';
+import { getOrdersByCustomerId } from '@/lib/database';
+
+// Default user ID (customer with id=2 as per requirement)
+const DEFAULT_USER_ID = 2;
 
 const getStatusConfig = (status: OrderStatus) => {
   switch (status) {
@@ -94,10 +98,39 @@ function OrderCard({ order, isCurrent }: OrderCardProps) {
 
 export default function MyOrdersScreen() {
   const { currentOrder, orderHistory } = useApp();
+  const [dbOrders, setDbOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pastOrders = orderHistory.filter(
-    (order) => order.status === 'delivered' || order.id !== currentOrder?.id
-  );
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      const orders = await getOrdersByCustomerId(DEFAULT_USER_ID);
+      setDbOrders(orders);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Separate current orders (not delivered) and past orders (delivered)
+  const currentOrders = dbOrders.filter(order => order.status !== 'delivered');
+  const pastOrders = dbOrders.filter(order => order.status === 'delivered');
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-cream" edges={['top']}>
@@ -108,31 +141,162 @@ export default function MyOrdersScreen() {
 
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
           <View className="p-6 pb-24">
-            {currentOrder && currentOrder.status !== 'delivered' && (
-              <View className="mb-6">
-                <Text className="text-charcoal text-lg font-bold mb-4">
-                  Current Order
-                </Text>
-                <OrderCard order={currentOrder} isCurrent />
+            {loading ? (
+              <View className="bg-white rounded-card p-8 shadow-soft items-center">
+                <ActivityIndicator size="large" color="#00A896" />
+                <Text className="text-charcoal/60 mt-4">Loading orders...</Text>
               </View>
-            )}
+            ) : (
+              <>
+                {/* Current Orders Section */}
+                {currentOrders.length > 0 && (
+                  <View className="mb-6">
+                    <Text className="text-charcoal text-lg font-bold mb-4">
+                      Current Orders
+                    </Text>
+                    {currentOrders.map((order) => (
+                      <TouchableOpacity
+                        key={order.id}
+                        className="bg-white rounded-card p-4 mb-4 shadow-soft border-2 border-turquoise"
+                        onPress={() => router.push(`/order-tracker?orderId=${order.id}`)}
+                      >
+                        <View className="flex-row items-center justify-between mb-3">
+                          <View>
+                            <Text className="text-charcoal font-bold text-base">
+                              Order #{order.order_code}
+                            </Text>
+                            {order.merchant && (
+                              <Text className="text-turquoise text-sm font-medium">
+                                {order.merchant.name}
+                              </Text>
+                            )}
+                            <Text className="text-charcoal/60 text-sm">
+                              {formatDate(order.ordered_at)}
+                            </Text>
+                          </View>
+                          <ChevronRight size={20} color="#00A896" />
+                        </View>
 
-            <View>
-              <Text className="text-charcoal text-lg font-bold mb-4">
-                Order History
-              </Text>
-              {pastOrders.length === 0 ? (
-                <View className="bg-white rounded-card p-8 shadow-soft items-center">
-                  <Text className="text-charcoal/60 text-base text-center">
-                    No past orders yet.{'\n'}Your order history will appear here.
+                        <View className="border-t border-sand/50 pt-3">
+                          <View className="flex-row items-center justify-between mb-2">
+                            <Text className="font-semibold text-sm text-turquoise">
+                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            </Text>
+                            <Text className="text-turquoise font-bold text-base">
+                              ${order.total_price.toFixed(2)}
+                            </Text>
+                          </View>
+
+                          {order.ordering_location && (
+                            <View className="space-y-1">
+                              {order.hospitality_center && (
+                                <View className="flex-row items-center mb-1">
+                                  <MapPin size={14} color="#FF6B35" opacity={0.8} />
+                                  <Text className="text-charcoal/70 text-sm ml-1.5 font-medium">
+                                    {order.hospitality_center.name}
+                                  </Text>
+                                </View>
+                              )}
+                              <View className="flex-row items-center">
+                                <MapPin size={14} color="#3E3D38" opacity={0.6} />
+                                <Text className="text-charcoal/60 text-sm ml-1.5">
+                                  {order.ordering_location.name}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+
+                          {order.instructions && (
+                            <View className="mt-2">
+                              <Text className="text-charcoal/60 text-sm">
+                                Note: {order.instructions}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                {/* Order History Section */}
+                <View>
+                  <Text className="text-charcoal text-lg font-bold mb-4">
+                    Order History
                   </Text>
+                  {pastOrders.length === 0 ? (
+                    <View className="bg-white rounded-card p-8 shadow-soft items-center">
+                      <Text className="text-charcoal/60 text-base text-center">
+                        No past orders yet.{'\n'}Your order history will appear here.
+                      </Text>
+                    </View>
+                  ) : (
+                    pastOrders.map((order) => (
+                      <TouchableOpacity
+                        key={order.id}
+                        className="bg-white rounded-card p-4 mb-4 shadow-soft"
+                        onPress={() => router.push(`/order-tracker?orderId=${order.id}`)}
+                      >
+                        <View className="flex-row items-center justify-between mb-3">
+                          <View>
+                            <Text className="text-charcoal font-bold text-base">
+                              Order #{order.order_code}
+                            </Text>
+                            {order.merchant && (
+                              <Text className="text-charcoal/70 text-sm font-medium">
+                                {order.merchant.name}
+                              </Text>
+                            )}
+                            <Text className="text-charcoal/60 text-sm">
+                              {formatDate(order.ordered_at)}
+                            </Text>
+                          </View>
+                          <ChevronRight size={20} color="#3E3D38" opacity={0.5} />
+                        </View>
+
+                        <View className="border-t border-sand/50 pt-3">
+                          <View className="flex-row items-center justify-between mb-2">
+                            <Text className="font-semibold text-sm text-turquoise">
+                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            </Text>
+                            <Text className="text-turquoise font-bold text-base">
+                              ${order.total_price.toFixed(2)}
+                            </Text>
+                          </View>
+
+                          {order.ordering_location && (
+                            <View className="space-y-1">
+                              {order.hospitality_center && (
+                                <View className="flex-row items-center mb-1">
+                                  <MapPin size={14} color="#FF6B35" opacity={0.8} />
+                                  <Text className="text-charcoal/70 text-sm ml-1.5 font-medium">
+                                    {order.hospitality_center.name}
+                                  </Text>
+                                </View>
+                              )}
+                              <View className="flex-row items-center">
+                                <MapPin size={14} color="#3E3D38" opacity={0.6} />
+                                <Text className="text-charcoal/60 text-sm ml-1.5">
+                                  {order.ordering_location.name}
+                                </Text>
+                              </View>
+                            </View>
+                          )}
+
+                          {order.instructions && (
+                            <View className="mt-2">
+                              <Text className="text-charcoal/60 text-sm">
+                                Note: {order.instructions}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+                    ))
+                  )}
                 </View>
-              ) : (
-                pastOrders.map((order) => (
-                  <OrderCard key={order.id} order={order} />
-                ))
-              )}
-            </View>
+              </>
+            )}
           </View>
         </ScrollView>
         <BottomTabBar />

@@ -130,6 +130,8 @@ export async function createOrder(orderData: {
   total_price: number;
   instructions?: string | null;
   status?: 'received' | 'preparing' | 'on-delivery' | 'delivered';
+  hospitality_center_id?: number;
+  merchant_id?: number;
 }) {
   const orderCode = generateOrderCode();
   
@@ -145,6 +147,16 @@ export async function createOrder(orderData: {
   // Only add instructions if provided
   if (orderData.instructions !== undefined && orderData.instructions !== null) {
     insertData.instructions = orderData.instructions;
+  }
+  
+  // Add hospitality_center_id if provided
+  if (orderData.hospitality_center_id) {
+    insertData.hospitality_center_id = orderData.hospitality_center_id;
+  }
+  
+  // Add merchant_id if provided
+  if (orderData.merchant_id) {
+    insertData.merchant_id = orderData.merchant_id;
   }
   
   console.log('Inserting order data:', insertData);
@@ -251,20 +263,19 @@ export async function getOrderById(orderId: string) {
     .from('order')
     .select(`
       *,
-      merchant:merchant_id (
-        id,
-        name,
-        image_url
-      ),
       ordering_location:ordering_location_id (
         id,
         name,
         type
       ),
-      currency:currency_id (
+      merchant:merchant_id (
         id,
-        code,
-        symbol
+        name,
+        image_url
+      ),
+      hospitality_center:hospitality_center_id (
+        id,
+        name
       )
     `)
     .eq('id', orderId)
@@ -279,7 +290,6 @@ export async function getOrderById(orderId: string) {
       product:product_id (
         id,
         name,
-        image_url,
         description
       )
     `)
@@ -329,4 +339,50 @@ export async function updateOrderFeedback(
 
   if (error) throw error;
   return data as Order;
+}
+
+// Get customer by ID
+export async function getCustomerById(customerId: number): Promise<Customer | null> {
+  const { data, error } = await supabase
+    .from('customer')
+    .select('*')
+    .eq('id', customerId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching customer:', error);
+    return null;
+  }
+  return data as Customer;
+}
+
+// Get orders by customer ID
+export async function getOrdersByCustomerId(customerId: number): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('order')
+    .select(`
+      *,
+      ordering_location:ordering_location_id (
+        id,
+        name,
+        type
+      ),
+      merchant:merchant_id (
+        id,
+        name,
+        image_url
+      ),
+      hospitality_center:hospitality_center_id (
+        id,
+        name
+      )
+    `)
+    .eq('customer_id', customerId)
+    .order('ordered_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching orders:', error);
+    return [];
+  }
+  return data as Order[];
 }

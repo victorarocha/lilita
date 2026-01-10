@@ -1,41 +1,69 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, CheckCircle, Clock, Truck, MapPin, Phone, MessageCircle } from 'lucide-react-native';
 import { useApp } from '@/context/AppContext';
 import { OrderStatus } from '@/types';
+import { getOrderById } from '@/lib/database';
 
-const statusSteps: { status: OrderStatus; label: string; icon: any }[] = [
+const statusSteps: { status: string; label: string; icon: any }[] = [
   { status: 'received', label: 'Order Received', icon: CheckCircle },
   { status: 'preparing', label: 'Preparing', icon: Clock },
-  { status: 'delivering', label: 'Out for Delivery', icon: Truck },
+  { status: 'on-delivery', label: 'Out for Delivery', icon: Truck },
   { status: 'delivered', label: 'Delivered', icon: MapPin },
 ];
 
 export default function OrderTrackerScreen() {
   const { currentOrder, setCurrentOrder } = useApp();
+  const { orderId } = useLocalSearchParams<{ orderId?: string }>();
+  const [dbOrder, setDbOrder] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<OrderStatus>('received');
 
   useEffect(() => {
-    if (!currentOrder) {
+    if (orderId) {
+      loadOrderFromDb();
+    } else if (!currentOrder) {
       router.replace('/');
-      return;
     }
+  }, [orderId, currentOrder]);
 
-    // Simulate status updates
-    const timer1 = setTimeout(() => setCurrentStatus('preparing'), 3000);
-    const timer2 = setTimeout(() => setCurrentStatus('delivering'), 8000);
-    const timer3 = setTimeout(() => setCurrentStatus('delivered'), 13000);
+  const loadOrderFromDb = async () => {
+    if (!orderId) return;
+    try {
+      setLoading(true);
+      const order = await getOrderById(orderId);
+      setDbOrder(order);
+      setCurrentStatus(order.status as OrderStatus);
+    } catch (error) {
+      console.error('Error loading order:', error);
+      router.replace('/');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
-    };
-  }, [currentOrder]);
+  // If loading from DB
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 bg-cream items-center justify-center">
+        <ActivityIndicator size="large" color="#00A896" />
+        <Text className="text-charcoal/60 mt-4">Loading order...</Text>
+      </SafeAreaView>
+    );
+  }
 
-  if (!currentOrder) return null;
+  // If no order data available
+  if (!dbOrder && !currentOrder) return null;
+
+  // Use dbOrder if available, otherwise use currentOrder from context
+  const orderData = dbOrder || currentOrder;
+  const orderCode = dbOrder?.order_code || currentOrder?.orderCode;
+  const merchantName = dbOrder?.merchant?.name || (currentOrder?.items?.length > 0 ? currentOrder.items[0].venueName : null);
+  const deliveryLocationName = dbOrder?.ordering_location?.name || currentOrder?.deliveryLocation?.name;
+  const deliveryLocationNote = dbOrder?.instructions || currentOrder?.deliveryLocation?.customNote;
+  const hospitalityCenterName = dbOrder?.hospitality_center?.name;
 
   const currentStepIndex = statusSteps.findIndex((step) => step.status === currentStatus);
 
@@ -54,9 +82,9 @@ export default function OrderTrackerScreen() {
             {/* Order Info */}
             <View className="bg-white rounded-card p-6 shadow-soft mb-6">
               <Text className="text-charcoal/60 text-sm mb-1">Order Code</Text>
-              <Text className="text-charcoal font-bold text-xl">{currentOrder.orderCode}</Text>
-              {currentOrder.items.length > 0 && currentOrder.items[0].venueName && (
-                <Text className="text-charcoal/60 text-sm mb-4">from {currentOrder.items[0].venueName}</Text>
+              <Text className="text-charcoal font-bold text-xl">{orderCode}</Text>
+              {merchantName && (
+                <Text className="text-charcoal/60 text-sm mb-4">from {merchantName}</Text>
               )}
 
               <View className="flex-row items-center mb-3 mt-4">
@@ -64,11 +92,11 @@ export default function OrderTrackerScreen() {
                 <Text className="text-charcoal/60 text-sm ml-2">Delivering to:</Text>
               </View>
               <Text className="text-charcoal font-semibold text-base">
-                {currentOrder.deliveryLocation.name}
+                {deliveryLocationName}
               </Text>
-              {currentOrder.deliveryLocation.customNote && (
+              {deliveryLocationNote && (
                 <Text className="text-charcoal/60 text-sm mt-1">
-                  {currentOrder.deliveryLocation.customNote}
+                  {deliveryLocationNote}
                 </Text>
               )}
             </View>
